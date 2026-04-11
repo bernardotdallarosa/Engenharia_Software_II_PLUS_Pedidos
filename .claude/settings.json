@@ -1,22 +1,14 @@
 {
-  "version": 1,
   "hooks": {
-    "userPromptSubmitted": [
-      {
-        "type": "command",
-        "bash": "./.github/hooks/scripts/log-prompt-hook.sh",
-        "powershell": "bash ./.github/hooks/scripts/log-prompt-hook.sh",
-        "timeoutSec": 10,
-        "cwd": "${workspaceFolder}"
-      }
-    ],
     "UserPromptSubmit": [
       {
-        "type": "command",
-        "bash": "./.github/hooks/scripts/log-prompt-hook.sh",
-        "powershell": "bash ./.github/hooks/scripts/log-prompt-hook.sh",
-        "timeoutSec": 10,
-        "cwd": "${workspaceFolder}"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/ai_log/log_prompts.py",
+            "async": true
+          }
+        ]
       }
     ]
   }
