@@ -1,0 +1,52 @@
+services:
+  ministack:
+    image: ministackorg/ministack
+    container_name: ministack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,rds,apigateway,sts
+      - DEBUG=0
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - ministack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:4566/_localstack/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  plus-ms-ped:
+    build:
+      context: ../plus-ms-ped
+      dockerfile: Dockerfile
+    container_name: plus-ms-ped
+    ports:
+      - "${MS_PED_PORT:-3001}:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+    restart: unless-stopped
+
+  plus-mfe-ped:
+    build:
+      context: ../plus-mfe-ped
+      dockerfile: Dockerfile
+    container_name: plus-mfe-ped
+    ports:
+      - "${MFE_PED_PORT:-4007}:4007"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:4007/assets/remoteEntry.js || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  ministack_data:

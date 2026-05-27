@@ -1,0 +1,526 @@
+openapi: 3.0.3
+info:
+  title: Plus MS Pedidos API
+  version: 0.1.0
+  description: |
+    Microsserviço de **Pedidos e Vendas** (MS7) do projeto Plus — loja de roupas plus size.
+
+    **Escopo desta versão (design-first):** contrato REST para pedidos de entrada (`PURCHASE`)
+    e vendas/saídas (`SALE`). Pagamentos, trocas e devoluções ficam fora do escopo inicial.
+
+    **Integração com estoque (MS4):** ao transitar para `CONFIRMED`, o serviço deve publicar
+    um evento assíncrono (`order.confirmed`) para baixa de estoque. A implementação do
+    publicador/consumidor será feita quando o contrato do MS Estoque estiver disponível;
+    nesta fase o endpoint apenas documenta o comportamento esperado.
+
+    **Autenticação:** requisições protegidas exigem JWT emitido pelo MS Auth da turma
+    (`Authorization: Bearer <token>`). Claims esperados: `sub`, `email`, `role`
+    (`ADMIN`, `STAFF`, `MANAGER`).
+
+servers:
+  - url: http://localhost:3001
+    description: Desenvolvimento local (Docker / npm run dev)
+
+tags:
+  - name: Health
+    description: Disponibilidade do serviço
+  - name: Orders
+    description: Pedidos de entrada e vendas (saída)
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Verifica se o serviço está no ar
+      operationId: getHealth
+      security: []
+      responses:
+        "200":
+          description: Serviço saudável
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: ok
+                service: plus-ms-ped
+
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Cria um pedido (entrada ou venda)
+      description: |
+        Cria um pedido em estado `DRAFT` com um ou mais itens.
+
+        - `PURCHASE`: entrada de mercadoria (reposição / pedido a fornecedor).
+        - `SALE`: saída / venda ao cliente final.
+
+        **Roles:** `ADMIN` e `STAFF` podem criar. `MANAGER` não cria (apenas consulta e cancela).
+      operationId: createOrder
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+            examples:
+              venda:
+                summary: Venda (saída) com dois itens
+                value:
+                  type: SALE
+                  notes: Venda balcão — cliente presencial
+                  items:
+                    - productVariantId: "var-vestido-marinho-48"
+                      quantity: 1
+                    - productVariantId: "var-cinto-preto-unico"
+                      quantity: 1
+              entrada:
+                summary: Pedido de entrada (reposição)
+                value:
+                  type: PURCHASE
+                  supplierRef: "fornecedor-xyz"
+                  notes: NF aguardada
+                  items:
+                    - productVariantId: "var-blusa-floral-52"
+                      quantity: 10
+      responses:
+        "201":
+          description: Pedido criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+    get:
+      tags: [Orders]
+      summary: Lista pedidos com filtros
+      description: |
+        Lista paginada. Todos os papéis autenticados podem listar (`ADMIN`, `STAFF`, `MANAGER`).
+      operationId: listOrders
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderTypeQuery"
+        - $ref: "#/components/parameters/OrderStatusQuery"
+        - $ref: "#/components/parameters/DateFromQuery"
+        - $ref: "#/components/parameters/DateToQuery"
+        - $ref: "#/components/parameters/PageQuery"
+        - $ref: "#/components/parameters/PageSizeQuery"
+      responses:
+        "200":
+          description: Lista de pedidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+  /orders/{orderId}:
+    get:
+      tags: [Orders]
+      summary: Obtém um pedido pelo identificador
+      operationId: getOrderById
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderIdPath"
+      responses:
+        "200":
+          description: Pedido encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+  /orders/{orderId}/status:
+    patch:
+      tags: [Orders]
+      summary: Atualiza o status do pedido
+      description: |
+        Transições permitidas:
+
+        | De | Para |
+        |----|------|
+        | `DRAFT` | `CONFIRMED`, `CANCELLED` |
+        | `CONFIRMED` | `COMPLETED`, `CANCELLED` |
+        | `COMPLETED` | — (terminal) |
+        | `CANCELLED` | — (terminal) |
+
+        Ao passar para `CONFIRMED`, o MS deve publicar evento `order.confirmed` para o
+        MS Estoque (integração futura). `STAFF` pode confirmar e completar vendas;
+        `ADMIN` pode todas as transições. `MANAGER` não altera status.
+      operationId: updateOrderStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrderStatusRequest"
+            example:
+              status: CONFIRMED
+      responses:
+        "200":
+          description: Status atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+  /orders/{orderId}/cancel:
+    post:
+      tags: [Orders]
+      summary: Cancela um pedido
+      description: |
+        Atalho para cancelar (`status` → `CANCELLED`). Permitido enquanto o pedido não
+        estiver `COMPLETED`.
+
+        **Roles:** `ADMIN` e `MANAGER` podem cancelar qualquer pedido elegível;
+        `STAFF` pode cancelar apenas pedidos que criou (`createdBy` = seu `sub`).
+      operationId: cancelOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderIdPath"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelOrderRequest"
+      responses:
+        "200":
+          description: Pedido cancelado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token JWT do MS Auth (turma)
+
+  parameters:
+    OrderIdPath:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Identificador único do pedido
+    OrderTypeQuery:
+      name: type
+      in: query
+      schema:
+        $ref: "#/components/schemas/OrderType"
+      description: Filtra por tipo (entrada ou venda)
+    OrderStatusQuery:
+      name: status
+      in: query
+      schema:
+        $ref: "#/components/schemas/OrderStatus"
+      description: Filtra por status
+    DateFromQuery:
+      name: from
+      in: query
+      schema:
+        type: string
+        format: date-time
+      description: Data/hora inicial (ISO 8601, inclusiva)
+    DateToQuery:
+      name: to
+      in: query
+      schema:
+        type: string
+        format: date-time
+      description: Data/hora final (ISO 8601, inclusiva)
+    PageQuery:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeQuery:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, service]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        service:
+          type: string
+          example: plus-ms-ped
+
+    OrderType:
+      type: string
+      enum: [PURCHASE, SALE]
+      description: |
+        `PURCHASE` = pedido de entrada (reposição).
+        `SALE` = venda / saída.
+
+    OrderStatus:
+      type: string
+      enum: [DRAFT, CONFIRMED, COMPLETED, CANCELLED]
+      description: |
+        `DRAFT` — em elaboração.
+        `CONFIRMED` — confirmado; dispara evento de baixa de estoque (assíncrono).
+        `COMPLETED` — concluído (terminal).
+        `CANCELLED` — cancelado (terminal).
+
+    OrderItem:
+      type: object
+      required: [productVariantId, quantity]
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Identificador da linha no pedido
+        productVariantId:
+          type: string
+          description: |
+            Referência à variante do produto (cor + grade/tamanho).
+            Origem: MS Produto / MS Estoque (contrato entre equipes).
+          example: var-vestido-marinho-48
+        quantity:
+          type: integer
+          minimum: 1
+          example: 2
+
+    Order:
+      type: object
+      required:
+        - id
+        - type
+        - status
+        - items
+        - createdBy
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/OrderType"
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        supplierRef:
+          type: string
+          nullable: true
+          description: Referência opcional ao fornecedor (relevante em `PURCHASE`)
+        notes:
+          type: string
+          maxLength: 2000
+          nullable: true
+        createdBy:
+          type: string
+          description: Claim "sub" do JWT do utilizador que criou o pedido
+        confirmedAt:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+
+    CreateOrderRequest:
+      type: object
+      required: [type, items]
+      properties:
+        type:
+          $ref: "#/components/schemas/OrderType"
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [productVariantId, quantity]
+            properties:
+              productVariantId:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+        supplierRef:
+          type: string
+          description: Opcional; recomendado para `PURCHASE`
+        notes:
+          type: string
+          maxLength: 2000
+
+    UpdateOrderStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+
+    CancelOrderRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          description: Motivo do cancelamento (auditoria)
+
+    OrderListResponse:
+      type: object
+      required: [data, page, pageSize, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+          description: Total de registos que correspondem aos filtros
+
+    ErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+
+  responses:
+    BadRequest:
+      description: Pedido inválido (corpo malformado ou regra de validação)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+    Unauthorized:
+      description: Token ausente ou inválido
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+    Forbidden:
+      description: Role sem permissão para a operação
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+    NotFound:
+      description: Pedido não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+    Conflict:
+      description: Transição de status inválida ou pedido em estado terminal
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+    UnprocessableEntity:
+      description: Regra de negócio violada (ex. lista de itens vazia após validação)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+    NotImplemented:
+      description: Endpoint documentado; implementação pendente (fase design-first)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+          example:
+            error: not_implemented
+            details:
+              - Contrato OpenAPI publicado; lógica de domínio em desenvolvimento.

@@ -1,0 +1,34 @@
+name: CI — plus-mfe-ped
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    name: Type check e build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run type-check
+      - run: npm run build
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t plus-mfe-ped:${{ github.sha }} .
+      - run: |
+          docker run -d --name mfe-ped -p 4007:4007 plus-mfe-ped:${{ github.sha }}
+          sleep 3
+          curl -fsS http://localhost:4007/assets/remoteEntry.js
+          docker stop mfe-ped
