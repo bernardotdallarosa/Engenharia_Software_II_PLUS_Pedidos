@@ -5,9 +5,6 @@ info:
   description: |
     Microsserviço de **Pedidos e Vendas** (MS7) do projeto Plus — loja de roupas plus size.
 
-    **Escopo desta versão (design-first):** contrato REST para pedidos de entrada (`PURCHASE`)
-    e vendas/saídas (`SALE`). Pagamentos, trocas e devoluções ficam fora do escopo inicial.
-
     **Integração com estoque (MS4):** ao transitar para `CONFIRMED`, o serviço deve publicar
     um evento assíncrono (`order.confirmed`) para baixa de estoque. A implementação do
     publicador/consumidor será feita quando o contrato do MS Estoque estiver disponível;
@@ -248,7 +245,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Access token JWT do MS Auth (turma)
+      description: Access token JWT do MS Auth
 
   parameters:
     OrderIdPath:
@@ -515,7 +512,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorBody"
     NotImplemented:
-      description: Endpoint documentado; implementação pendente (fase design-first)
+      description: Endpoint documentado; implementação pendente
       content:
         application/json:
           schema:
