@@ -28,8 +28,10 @@ projeto/
 │   ├── docker-compose.yml
 │   ├── Makefile
 │   └── .env.example
-├── plus-ms-auth/        ← microsserviço
-├── plus-mfe-auth/       ← microfrontend
+├── plus-ms-auth/        ← microsserviço de auth (eleito)
+├── plus-mfe-auth/       ← microfrontend de auth
+├── plus-ms-ped/         ← microsserviço de pedidos (Grupo 8)
+├── plus-mfe-ped/        ← microfrontend de pedidos
 └── plus-shell/          ← shell do frontend
 ```
 
@@ -94,6 +96,8 @@ O `make setup`:
 | plus-shell | http://localhost:3000 | Shell App (microfrontend host) |
 | plus-ms-auth | http://localhost:3001 | Microsserviço de autenticação |
 | plus-mfe-auth | http://localhost:4001 | Microfrontend de autenticação |
+| plus-ms-ped | http://localhost:3007 | Microsserviço de pedidos (Grupo 8) |
+| plus-mfe-ped | http://localhost:4007 | Microfrontend de pedidos |
 | Ministack | http://localhost:4566 | Emulador AWS |
 | API Gateway | `http://localhost:4566/restapis/<api-id>/v1/_user_request_` | Gateway para plus-ms-auth |
 | RDS (PostgreSQL) | Ver `terraform/rds.env` (gerado após `terraform apply`) | O LocalStack coloca o Postgres num sidecar; `DB_HOST` não é `ministack`. |
@@ -111,6 +115,8 @@ O `make setup`:
 | POST | `/auth/refresh` | plus-ms-auth:3001 |
 | POST | `/auth/logout` | plus-ms-auth:3001 |
 | GET | `/auth/me` | plus-ms-auth:3001 |
+| ANY | `/orders` | plus-ms-ped:3007 |
+| ANY | `/orders/{proxy+}` | plus-ms-ped:3007 |
 
 ---
 

@@ -1,5 +1,5 @@
-# Se o Ministack ainda tiver bucket/RDS de uma corrida anterior mas o .tfstate não os referencia,
-# o apply falha com BucketAlreadyExists / DBInstanceAlreadyExists. Importa só o que faltar no state.
+# Se o Ministack ainda tiver bucket/RDS de uma corrida anterior mas o .tfstate nao os referencia,
+# o apply falha com BucketAlreadyExists / DBInstanceAlreadyExists. Importa so o que faltar no state.
 $ErrorActionPreference = "Continue"
 
 $root = Split-Path -Parent $PSScriptRoot
@@ -14,13 +14,18 @@ function Get-StateAddresses {
 function Import-IfAbsent([string]$address, [string]$importId) {
     $addrs = Get-StateAddresses
     if ($addrs -contains $address) { return }
-    Write-Host "[make] Estado sem '$address'; a importar recurso existente do Ministack ($importId)..."
-    & terraform "-chdir=terraform" import -input=false $address $importId 2>&1 | Out-Host
+    Write-Host "[make] Estado sem '$address'; a importar se ja existir no Ministack ($importId)..."
+    $null = & terraform "-chdir=terraform" import -input=false $address $importId 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[make]   import ignorado (recurso ainda nao existe; sera criado pelo apply)."
+    }
 }
 
 Import-IfAbsent "aws_s3_bucket.media" "plus-media"
 Import-IfAbsent "aws_s3_bucket_versioning.media" "plus-media"
 Import-IfAbsent "aws_db_instance.auth" "plus-auth-db"
+Import-IfAbsent "aws_db_instance.ped" "plus-ped-db"
+Import-IfAbsent "aws_sqs_queue.order_events" "plus-order-events"
 
 Pop-Location
 exit 0

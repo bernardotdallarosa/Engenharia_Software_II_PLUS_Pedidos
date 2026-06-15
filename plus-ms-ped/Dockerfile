@@ -13,5 +13,6 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/openapi ./openapi
-EXPOSE 3001
+ENV PORT=3007
+EXPOSE 3007
 CMD ["node", "dist/server.js"]

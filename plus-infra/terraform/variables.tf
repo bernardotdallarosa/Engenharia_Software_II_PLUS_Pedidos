@@ -26,3 +26,15 @@ variable "ms_auth_host" {
 variable "ms_auth_port" {
   default = "3001"
 }
+
+variable "ms_ped_host" {
+  default = "plus-ms-ped"
+}
+
+variable "ms_ped_port" {
+  default = "3007"
+}
+
+variable "db_name_ped" {
+  default = "plus_ped"
+}

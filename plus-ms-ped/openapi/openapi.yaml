@@ -1,21 +1,42 @@
 openapi: 3.0.3
 info:
   title: Plus MS Pedidos API
-  version: 0.1.0
+  version: 0.2.0
   description: |
     Microsserviço de **Pedidos e Vendas** (MS7) do projeto Plus — loja de roupas plus size.
 
-    **Integração com estoque (MS4):** ao transitar para `CONFIRMED`, o serviço deve publicar
-    um evento assíncrono (`order.confirmed`) para baixa de estoque. A implementação do
-    publicador/consumidor será feita quando o contrato do MS Estoque estiver disponível;
-    nesta fase o endpoint apenas documenta o comportamento esperado.
+    **Escopo:** contrato REST para pedidos de entrada (`PURCHASE`) e vendas/saídas (`SALE`),
+    incluindo **reserva de grade** antes da confirmação. Pagamentos, trocas e devoluções ficam
+    fora do escopo inicial.
 
-    **Autenticação:** requisições protegidas exigem JWT emitido pelo MS Auth da turma
-    (`Authorization: Bearer <token>`). Claims esperados: `sub`, `email`, `role`
-    (`ADMIN`, `STAFF`, `MANAGER`).
+    **Integração com estoque (MS4)** — eventos assíncronos (SQS/SNS via Ministack):
+
+    | Evento | Quando |
+    |--------|--------|
+    | `order.reserved` | Transição para `RESERVED` |
+    | `order.confirmed` | Transição para `CONFIRMED` (baixa de estoque) |
+    | `order.reservation.released` | Cancelamento a partir de `RESERVED` |
+
+    O publicador será implementado no MS; o consumidor depende do contrato do MS Estoque.
+
+    **Autenticação:** JWT emitido pelo MS Auth eleito (`Authorization: Bearer <token>`).
+    Claims relevantes: `sub` (email do utilizador), `user_id`, `role` (`admin` | `vendedor`).
+
+    **RBAC (resumo):**
+
+    | Operação | `admin` | `vendedor` |
+    |----------|---------|------------|
+    | Criar `SALE` | ✅ | ✅ |
+    | Criar `PURCHASE` | ✅ | ❌ |
+    | Listar / consultar | ✅ | ✅ |
+    | Reservar grade | ✅ | ✅ |
+    | Confirmar / completar `SALE` | ✅ | ✅ |
+    | Confirmar / completar `PURCHASE` | ✅ | ❌ |
+    | Cancelar qualquer pedido elegível | ✅ | ❌ |
+    | Cancelar pedido próprio (não `COMPLETED`) | ✅ | ✅ |
 
 servers:
-  - url: http://localhost:3001
+  - url: http://localhost:3007
     description: Desenvolvimento local (Docker / npm run dev)
 
 tags:
@@ -49,10 +70,8 @@ paths:
       description: |
         Cria um pedido em estado `DRAFT` com um ou mais itens.
 
-        - `PURCHASE`: entrada de mercadoria (reposição / pedido a fornecedor).
-        - `SALE`: saída / venda ao cliente final.
-
-        **Roles:** `ADMIN` e `STAFF` podem criar. `MANAGER` não cria (apenas consulta e cancela).
+        - `PURCHASE`: entrada de mercadoria (reposição / pedido a fornecedor) — apenas `admin`.
+        - `SALE`: saída / venda ao cliente final — `admin` e `vendedor`.
       operationId: createOrder
       security:
         - bearerAuth: []
@@ -104,7 +123,7 @@ paths:
       tags: [Orders]
       summary: Lista pedidos com filtros
       description: |
-        Lista paginada. Todos os papéis autenticados podem listar (`ADMIN`, `STAFF`, `MANAGER`).
+        Lista paginada. `admin` e `vendedor` autenticados podem listar.
       operationId: listOrders
       security:
         - bearerAuth: []
@@ -150,6 +169,38 @@ paths:
         "501":
           $ref: "#/components/responses/NotImplemented"
 
+  /orders/{orderId}/reserve:
+    post:
+      tags: [Orders]
+      summary: Reserva grade do pedido
+      description: |
+        Atalho para reservar stock (`DRAFT` → `RESERVED`). Publica evento assíncrono
+        `order.reserved` para o MS Estoque (integração futura).
+
+        **Roles:** `admin` e `vendedor`.
+      operationId: reserveOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderIdPath"
+      responses:
+        "200":
+          description: Pedido reservado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
   /orders/{orderId}/status:
     patch:
       tags: [Orders]
@@ -159,14 +210,16 @@ paths:
 
         | De | Para |
         |----|------|
-        | `DRAFT` | `CONFIRMED`, `CANCELLED` |
+        | `DRAFT` | `RESERVED`, `CONFIRMED`, `CANCELLED` |
+        | `RESERVED` | `CONFIRMED`, `CANCELLED` |
         | `CONFIRMED` | `COMPLETED`, `CANCELLED` |
         | `COMPLETED` | — (terminal) |
         | `CANCELLED` | — (terminal) |
 
-        Ao passar para `CONFIRMED`, o MS deve publicar evento `order.confirmed` para o
-        MS Estoque (integração futura). `STAFF` pode confirmar e completar vendas;
-        `ADMIN` pode todas as transições. `MANAGER` não altera status.
+        Ao passar para `CONFIRMED`, publica `order.confirmed`. Cancelar a partir de `RESERVED`
+        publica `order.reservation.released`.
+
+        `vendedor` pode confirmar/completar apenas pedidos `SALE`. `admin` pode todas as transições.
       operationId: updateOrderStatus
       security:
         - bearerAuth: []
@@ -208,8 +261,8 @@ paths:
         Atalho para cancelar (`status` → `CANCELLED`). Permitido enquanto o pedido não
         estiver `COMPLETED`.
 
-        **Roles:** `ADMIN` e `MANAGER` podem cancelar qualquer pedido elegível;
-        `STAFF` pode cancelar apenas pedidos que criou (`createdBy` = seu `sub`).
+        **Roles:** `admin` pode cancelar qualquer pedido elegível; `vendedor` pode cancelar
+        apenas pedidos que criou (`createdBy` = email no claim `sub`).
       operationId: cancelOrder
       security:
         - bearerAuth: []
@@ -245,7 +298,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Access token JWT do MS Auth
+      description: Access token JWT do plus-ms-auth (MS Auth eleito)
 
   parameters:
     OrderIdPath:
@@ -310,6 +363,11 @@ components:
           type: string
           example: plus-ms-ped
 
+    UserRole:
+      type: string
+      enum: [admin, vendedor]
+      description: Papéis emitidos pelo plus-ms-auth no claim `role`.
+
     OrderType:
       type: string
       enum: [PURCHASE, SALE]
@@ -319,10 +377,11 @@ components:
 
     OrderStatus:
       type: string
-      enum: [DRAFT, CONFIRMED, COMPLETED, CANCELLED]
+      enum: [DRAFT, RESERVED, CONFIRMED, COMPLETED, CANCELLED]
       description: |
         `DRAFT` — em elaboração.
-        `CONFIRMED` — confirmado; dispara evento de baixa de estoque (assíncrono).
+        `RESERVED` — grade reservada; publica `order.reserved`.
+        `CONFIRMED` — confirmado; publica `order.confirmed` (baixa de estoque).
         `COMPLETED` — concluído (terminal).
         `CANCELLED` — cancelado (terminal).
 
@@ -379,7 +438,13 @@ components:
           nullable: true
         createdBy:
           type: string
-          description: Claim "sub" do JWT do utilizador que criou o pedido
+          format: email
+          description: Email do criador (claim `sub` do JWT do plus-ms-auth)
+        reservedAt:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
         confirmedAt:
           type: string
           format: date-time

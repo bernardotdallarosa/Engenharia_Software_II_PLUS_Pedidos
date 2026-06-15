@@ -5,7 +5,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=s3,rds,apigateway,sts
+      - SERVICES=s3,rds,apigateway,sts,sqs
       - DEBUG=0
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
@@ -21,16 +21,65 @@ services:
       retries: 10
       start_period: 20s
 
+  plus-ms-auth:
+    build:
+      context: ../plus-ms-auth
+      dockerfile: Dockerfile
+    container_name: plus-ms-auth
+    ports:
+      - "${MS_AUTH_PORT:-3001}:3001"
+    env_file:
+      - .env
+      - terraform/rds.env
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - PORT=3001
+    depends_on:
+      ministack:
+        condition: service_healthy
+    restart: unless-stopped
+
+  plus-mfe-auth:
+    build:
+      context: ../plus-mfe-auth
+      dockerfile: Dockerfile
+      args:
+        VITE_MS_AUTH_URL: ${VITE_MS_AUTH_BROWSER:-http://localhost:3001}
+    container_name: plus-mfe-auth
+    ports:
+      - "${MFE_AUTH_PORT:-4001}:4001"
+    depends_on:
+      plus-ms-auth:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:4001/assets/remoteEntry.js || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
   plus-ms-ped:
     build:
       context: ../plus-ms-ped
       dockerfile: Dockerfile
     container_name: plus-ms-ped
     ports:
-      - "${MS_PED_PORT:-3001}:3001"
+      - "${MS_PED_PORT:-3007}:3007"
     environment:
       - NODE_ENV=development
-      - PORT=3001
+      - PORT=3007
+      - AWS_ENDPOINT=http://ministack:4566
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - ORDER_EVENTS_QUEUE_URL=${ORDER_EVENTS_QUEUE_URL:-}
+    depends_on:
+      ministack:
+        condition: service_healthy
     restart: unless-stopped
 
   plus-mfe-ped:
@@ -46,6 +95,23 @@ services:
       timeout: 3s
       retries: 12
       start_period: 20s
+    restart: unless-stopped
+
+  plus-shell:
+    build:
+      context: ../plus-shell
+      dockerfile: Dockerfile
+      args:
+        MFE_AUTH_URL: ${MFE_AUTH_URL:-http://localhost:4001/assets/remoteEntry.js}
+        MFE_PED_URL: ${MFE_PED_URL:-http://localhost:4007/assets/remoteEntry.js}
+    container_name: plus-shell
+    ports:
+      - "${SHELL_PORT:-3000}:3000"
+    depends_on:
+      plus-mfe-auth:
+        condition: service_healthy
+      plus-mfe-ped:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

@@ -40,6 +40,7 @@ tf-apply:
 	TF_VAR_db_user=$${DB_USER:-plus} \
 	TF_VAR_db_password=$${DB_PASSWORD:-plus_secret} \
 	TF_VAR_ms_auth_port=$${MS_AUTH_PORT:-3001} \
+	TF_VAR_ms_ped_port=$${MS_PED_PORT:-3007} \
 	TF_VAR_endpoint=$${AWS_ENDPOINT:-http://localhost:4566} \
 	terraform -chdir=$(TF_DIR) apply -auto-approve
 	@sh scripts/write-rds-env.sh
@@ -69,8 +70,14 @@ setup: .env tf-init
 	@$(MAKE) wait-ministack
 	@$(MAKE) tf-apply
 	@$(MAKE) sync-vite-gateway
-	@echo "[make] Rebuild do MFE e do shell com variáveis de build atuais..."
-	$(COMPOSE) build plus-mfe-auth plus-shell
+	@echo "[make] Atualizando terraform/rds.env (host RDS pode mudar após rede Docker)..."
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/write-rds-env.ps1
+else
+	@sh scripts/write-rds-env.sh
+endif
+	@echo "[make] Rebuild dos MFEs e do shell com variáveis de build atuais..."
+	$(COMPOSE) build plus-mfe-auth plus-mfe-ped plus-shell
 	@echo "[make] Subindo todos os serviços..."
 	$(COMPOSE) up -d
 	@echo "[make] Setup concluído."
