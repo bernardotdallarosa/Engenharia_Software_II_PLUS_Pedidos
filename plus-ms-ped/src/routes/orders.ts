@@ -21,6 +21,10 @@ ordersRouter.get("/:orderId", (_req: Request, res: Response) => {
   res.status(501).json(NOT_IMPLEMENTED);
 });
 
+ordersRouter.post("/:orderId/reserve", (_req: Request, res: Response) => {
+  res.status(501).json(NOT_IMPLEMENTED);
+});
+
 ordersRouter.patch("/:orderId/status", (_req: Request, res: Response) => {
   res.status(501).json(NOT_IMPLEMENTED);
 });

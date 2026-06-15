@@ -29,6 +29,7 @@ $env:TF_VAR_db_name       = Get-EnvDefault "DB_NAME" "plus_auth"
 $env:TF_VAR_db_user       = Get-EnvDefault "DB_USER" "plus"
 $env:TF_VAR_db_password   = Get-EnvDefault "DB_PASSWORD" "plus_secret"
 $env:TF_VAR_ms_auth_port  = Get-EnvDefault "MS_AUTH_PORT" "3001"
+$env:TF_VAR_ms_ped_port   = Get-EnvDefault "MS_PED_PORT" "3007"
 $env:TF_VAR_endpoint      = Get-EnvDefault "AWS_ENDPOINT" "http://localhost:4566"
 
 Write-Host "[make] Sincronizando estado com S3/RDS já existentes no Ministack (se aplicável)..."

@@ -2,11 +2,11 @@
 
 Microsserviço de **Pedidos e Vendas** (MS7) do projeto **Plus**.
 
-## Entrega parcial (design-first)
+## Contrato da API
 
-O contrato da API está em [`openapi/openapi.yaml`](./openapi/openapi.yaml). A UI interativa é servida em **`/docs`**; o ficheiro bruto em **`/openapi.yaml`**.
+O contrato está em [`openapi/openapi.yaml`](./openapi/openapi.yaml) (**v0.2.0**). UI interativa em **`/docs`**; YAML em **`/openapi.yaml`**.
 
-Rotas de domínio (`/orders/*`) respondem **`501 Not Implemented`** até a implementação — o foco actual é validar o **Swagger/OpenAPI** com o professor/cliente.
+Rotas de domínio (`/orders/*`) respondem **`501 Not Implemented`** até a implementação completa.
 
 ## Executar localmente
 
@@ -16,32 +16,37 @@ npm install
 npm run dev
 ```
 
-- Swagger UI: http://localhost:3001/docs  
-- OpenAPI YAML: http://localhost:3001/openapi.yaml  
-- Health: http://localhost:3001/health  
+- Swagger UI: http://localhost:3007/docs  
+- OpenAPI YAML: http://localhost:3007/openapi.yaml  
+- Health: http://localhost:3007/health  
+
+> Porta **3007** evita conflito com `plus-ms-auth` (3001).
 
 ## Docker
 
 ```bash
 docker build -t plus-ms-ped .
-docker run --rm -p 3001:3001 plus-ms-ped
+docker run --rm -p 3007:3007 -e PORT=3007 plus-ms-ped
 ```
 
-## Escopo documentado (v0.1.0)
+## Escopo documentado (v0.2.0)
 
 | Recurso | Descrição |
 |---------|-----------|
-| `POST /orders` | Criar pedido `PURCHASE` (entrada) ou `SALE` (venda) |
+| `POST /orders` | Criar pedido `PURCHASE` ou `SALE` |
 | `GET /orders` | Listar com filtros |
 | `GET /orders/{orderId}` | Detalhe |
+| `POST /orders/{orderId}/reserve` | Reservar grade (`DRAFT` → `RESERVED`) |
 | `PATCH /orders/{orderId}/status` | Transição de status |
 | `POST /orders/{orderId}/cancel` | Cancelamento |
 
-**Fora do escopo v0.1.0:** pagamentos, trocas, devoluções. **Estoque:** evento `order.confirmed` documentado; integração com MS4 pendente.
+**Roles:** `admin` / `vendedor` (JWT do `plus-ms-auth`).  
+**Fora do escopo:** pagamentos, trocas, devoluções.  
+**Estoque:** eventos SQS documentados; integração MS4 pendente.
 
-## Autenticação (futuro)
+## Stack completa
 
-Endpoints protegidos no contrato usam `bearerAuth` (JWT do MS Auth da turma). Middleware de validação será adicionado quando o auth vencedor estiver definido.
+Ver [`plus-infra/README.md`](../plus-infra/README.md) — `make setup` sobe auth, shell, pedidos e Ministack.
 
 ## Testes
 

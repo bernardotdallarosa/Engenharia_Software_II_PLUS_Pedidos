@@ -5,6 +5,9 @@ import federation from "@originjs/vite-plugin-federation";
 const MFE_AUTH_URL =
   process.env.MFE_AUTH_URL || "http://localhost:4001/assets/remoteEntry.js";
 
+const MFE_PED_URL =
+  process.env.MFE_PED_URL || "http://localhost:4007/assets/remoteEntry.js";
+
 export default defineConfig({
   plugins: [
     react(),
@@ -12,6 +15,7 @@ export default defineConfig({
       name: "shell",
       remotes: {
         mfe_auth: MFE_AUTH_URL,
+        mfe_ped: MFE_PED_URL,
       },
       shared: ["react", "react-dom"],
     }),

@@ -1,0 +1,296 @@
+CONTEXTO DO TRABALHO — GRUPO 8 (MS7 PEDIDOS + MFE7)
+Projeto Plus — Sistema de Gestão de Estoque para Loja de Roupas Plus Size
+Disciplina: Engenharia de Software II — PUCRS 2026-1
+Última atualização: 2026-06-14
+
+
+Documento de referência que consolida o enunciado, decisões de arquitetura,
+estado atual do repositório e restrições conhecidas do domínio Pedidos.
+
+
+
+1. ESCOPO DO GRUPO 8
+
+
+O Grupo 8 é responsável pelo par:
+
+  - MS7  (plus-ms-ped)  — Microsserviço de Pedidos
+  - MFE7 (plus-mfe-ped) — Microfrontend de Pedidos
+
+O projecto global compreende 10 microsserviços e 10 microfrontends, orquestrados
+por um Shell App, com autenticação centralizada no MS Auth eleito na T1.
+
+Documentação complementar no repositório:
+  - ENTREGA-PARCIAL-SWAGGER.md — registo da entrega parcial (Swagger)
+
+
+
+2. CONTEXTO IMUTÁVEL
+
+
+2.1 Repositórios que o Grupo 8 não deve alterar
+
+  - plus-ms-auth/   — Microsserviço de autenticação eleito pela turma (T1)
+  - plus-mfe-auth/  — Microfrontend de autenticação eleito
+
+  Pedidos, shell e infraestrutura devem integrar-se com estes componentes,
+  não substituí-los.
+
+2.2 MS Auth eleito — detalhes técnicos
+
+  Backend:  Python 3.12, FastAPI, PostgreSQL, SQLAlchemy, JWT
+  Frontend: React 18, TypeScript, Vite, MUI, Module Federation
+
+  Roles no JWT (claim "role"):
+    admin
+    vendedor
+  (minúsculas, em português — distintas de ADMIN/STAFF/MANAGER)
+
+  Claims relevantes no access token:
+    sub      — email do utilizador
+    user_id  — identificador numérico
+    role     — "admin" | "vendedor"
+
+  Endpoints (prefixo /auth):
+    POST /register, /login, /refresh, /logout
+    GET  /me, /users
+    POST /promote/{user_id}
+
+  Porta local: 3001
+  Resposta de login: { access_token, refresh_token, token_type: "bearer" }
+
+2.3 Arquitectura global (professor + cliente)
+
+  - Sistema de gestão de estoque para loja de roupas plus size
+  - Grade extendida, medidas corporais, PDV, alertas por tamanho, relatórios
+  - Shell App + Module Federation + API Gateway + validação JWT
+  - Comunicação assíncrona entre microsserviços: SQS/SNS
+  - Desenvolvimento local: Docker + Ministack (ADR v1.1)
+  - Produção: ECS Fargate, RDS PostgreSQL (database-per-service), S3, ECR
+  - Parceiro: Josiel Pereira — Araranguá/SC
+
+2.4 Entregáveis obrigatórios da T2
+
+  - ADR do domínio Pedidos
+  - Microsserviço funcional com integração JWT ao MS Auth
+  - MFE em React + TypeScript + MUI, integrado ao Shell via Module Federation
+  - CI/CD (GitHub Actions): testes, build, release Docker Hub (MS) e NPM (MFE)
+  - Ambiente reproduzível com Ministack + Docker Compose
+  - Swagger/OpenAPI e manual de UI do microfrontend
+  - Registo de uso de IA (Cognitrace ou hooks do repositório prompt-auto-log)
+
+  Pontos extra: deploy AWS; suite de testes de integração
+
+2.5 Funcionalidades do domínio Pedidos (entrega final)
+
+  Microsserviço (MS7):
+    - Registro de pedidos e vendas
+    - Baixa automática no estoque ao confirmar pedido
+    - Listagem e gestão de status
+    - Histórico de saídas associado a pedidos
+    - Reserva de grade antes da confirmação
+
+  Microfrontend (MFE7):
+    - Criação de pedido/venda
+    - Listagem e acompanhamento de status
+    - Histórico de saídas
+    - Reserva de grade
+
+  Integrações previstas:
+    - MS4 Estoque — baixa via evento assíncrono ao confirmar
+    - MS9 Relatórios — consumo indirecto de eventos
+    - MS Auth — JWT em endpoints protegidos
+
+
+
+3. REPOSITÓRIOS SOB RESPONSABILIDADE DO GRUPO 8
+
+
+  plus-ms-ped/     Microsserviço de pedidos
+  plus-mfe-ped/    Microfrontend de pedidos
+  plus-infra/      Docker Compose, Ministack, Terraform
+  plus-shell/      Shell App (repositório da T1, atualizado para auth eleito + MFE7)
+
+  O enunciado prevê reutilizar o mesmo infra e shell da T1, adaptados ao
+  microsserviço de autenticação eleito e ao domínio Pedidos.
+
+
+
+4. STACK E TECNOLOGIAS (DOMÍNIO PEDIDOS)
+
+
+  Microsserviço:  Node.js, Express, TypeScript
+  Microfrontend:  React, TypeScript, MUI, Vite, Module Federation
+  Base de dados:  PostgreSQL (RDS plus_ped, provisionado no Terraform)
+  Mensageria:     Amazon SQS (emulado no Ministack)
+  Documentação:   OpenAPI 3.0 / Swagger UI
+  Testes (MS):    Vitest, Supertest
+
+
+
+5. DECISÕES DE MODELAGEM E CONTRATO (OpenAPI v0.2.0)
+
+
+  Ficheiro: plus-ms-ped/openapi/openapi.yaml
+  Porta de desenvolvimento do MS Pedidos: 3007 (auth permanece na 3001)
+
+  Tipos de pedido:
+    PURCHASE — entrada / reposição
+    SALE     — venda / saída
+
+  Ciclo de vida do status:
+    DRAFT → RESERVED → CONFIRMED → COMPLETED
+    CANCELLED — estado terminal
+
+  Endpoints principais:
+    POST   /orders
+    GET    /orders
+    GET    /orders/{orderId}
+    POST   /orders/{orderId}/reserve
+    PATCH  /orders/{orderId}/status
+    POST   /orders/{orderId}/cancel
+
+  Campo createdBy: email do criador (valor do claim "sub" do JWT)
+
+  Eventos assíncronos documentados (fila SQS plus-order-events):
+    order.reserved
+    order.confirmed
+    order.reservation.released
+
+  Fora do escopo da versão atual: pagamentos, trocas, devoluções
+
+5.1 Permissões por role (admin / vendedor)
+
+  Operação                          | admin | vendedor
+  ----------------------------------|-------|----------
+  Criar SALE                        |  sim  |  sim
+  Criar PURCHASE                    |  sim  |  não
+  Listar / consultar                |  sim  |  sim
+  Reservar grade                    |  sim  |  sim
+  Confirmar / completar SALE        |  sim  |  sim
+  Confirmar / completar PURCHASE    |  sim  |  não
+  Cancelar qualquer pedido elegível |  sim  |  não
+  Cancelar pedido próprio           |  sim  |  sim (createdBy = sub do token)
+
+5.2 Integração com MS4 (Estoque)
+
+  O contrato do microsserviço de Estoque ainda não está disponível.
+  Previsto: publicação de eventos pelo MS Pedidos; consumidor a definir
+  quando o contrato entre equipas existir.
+  Output Terraform: order_events_queue_url
+
+
+
+6. PORTAS E SERVIÇOS LOCAIS
+
+
+  Serviço           Porta
+  ----------------  ------
+  plus-shell        3000
+  plus-ms-auth       3001
+  plus-mfe-auth      4001
+  plus-ms-ped        3007
+  plus-mfe-ped       4007
+  Ministack          4566
+
+
+
+7. ESTADO ATUAL DO REPOSITÓRIO
+
+
+7.1 Implementado
+
+  - OpenAPI v0.2.0 (roles, RESERVED, reserva, eventos SQS)
+  - plus-ms-ped: Express + TypeScript; /health funcional; /orders/* retornam 501
+  - plus-mfe-ped: página placeholder (PlaceholderPage) exposta via Federation
+  - plus-shell: remotes mfe_auth e mfe_ped; sessão com access_token; navegação Pedidos
+  - plus-infra: compose com ministack, auth, shell e pedidos
+  - Terraform: RDS auth e ped, fila SQS, rotas API Gateway /auth/* e /orders/*
+  - Entrega parcial do Swagger (disciplina) — concluída
+
+7.2 Por implementar (entrega final)
+
+  - Lógica de domínio nos endpoints /orders/*
+  - Middleware JWT e RBAC alinhado ao plus-ms-auth
+  - Persistência PostgreSQL (plus_ped): modelos, migrations
+  - Publicador de eventos SQS
+  - ADR do domínio Pedidos
+  - Telas completas no MFE7
+  - Manual de UI
+  - CI/CD com releases (Docker Hub + NPM)
+  - Testes unitários com cobertura adequada
+  - Integração definitiva com MS4 quando houver contrato
+
+7.3 Ficheiros de referência
+
+  plus-ms-ped/openapi/openapi.yaml
+  plus-ms-ped/src/routes/orders.ts
+  plus-ms-ped/src/app.ts
+  plus-shell/src/App.jsx
+  plus-shell/vite.config.js
+  plus-infra/docker-compose.yml
+  plus-infra/terraform/main.tf
+  plus-infra/.env.example
+
+
+
+8. AMBIENTE LOCAL
+
+
+  Pré-requisitos: Docker 24+, Terraform 1.15+
+
+  cd plus-infra
+  cp .env.example .env
+  make setup
+
+  URLs após subida da stack:
+    Shell         http://localhost:3000
+    MS Auth       http://localhost:3001
+    MFE Auth      http://localhost:4001
+    MS Pedidos    http://localhost:3007/docs
+    MFE Pedidos   http://localhost:4007
+
+  Notas operacionais:
+    - Na primeira execução, tentativas de import Terraform podem falhar se os
+      recursos ainda não existirem no Ministack; o apply subsequente cria-os.
+    - Se plus-ms-auth reiniciar em loop, atualizar terraform/rds.env e recriar
+      o contentor (scripts/write-rds-env.ps1 no Windows).
+    - Reset completo: make reset ou docker compose down -v seguido de make setup.
+    - O tsconfig do plus-mfe-ped não deve referenciar tipos de teste (vitest,
+      jest-dom) sem as dependências correspondentes instaladas.
+
+
+
+9. RESTRIÇÕES E CONVENÇÕES
+
+
+  - plus-ms-auth e plus-mfe-auth permanecem inalterados
+  - Roles de autorização: apenas admin e vendedor
+  - MS Pedidos na porta 3007, não na 3001
+  - createdBy armazena o email (sub), não o user_id
+  - OpenAPI e implementação devem permanecer alinhados
+  - Contrato do MS Estoque tratado de forma provisória até acordo entre equipas
+
+
+
+10. CRITÉRIOS DE AVALIAÇÃO (RESUMO)
+
+
+  Professor (70%): ADR 20%, MS 25%, MFE 20%, DevOps 20%, uso de IA 15%
+  Pares (15%): arquitectura, demo, completude, documentação
+  Autoavaliação (15%)
+
+
+
+11. PRÓXIMOS PASSOS (ORDEM SUGERIDA)
+
+
+  1. Base de dados e migrations (orders, itens) em plus_ped
+  2. Middleware JWT (JWT_SECRET partilhado com plus-ms-auth via ambiente)
+  3. Implementação dos endpoints conforme OpenAPI e RBAC
+  4. Publicador SQS para eventos order.*
+  5. Microfrontend: criação, listagem, reserva, transições de status
+  6. ADR do domínio Pedidos
+  7. CI/CD, manual de UI e testes
+
+

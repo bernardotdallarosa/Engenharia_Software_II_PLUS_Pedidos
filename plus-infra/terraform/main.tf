@@ -21,6 +21,7 @@ provider "aws" {
     rds        = var.endpoint
     apigateway = var.endpoint
     sts        = var.endpoint
+    sqs        = var.endpoint
   }
 }
 
@@ -51,6 +52,26 @@ resource "aws_db_instance" "auth" {
   multi_az            = false
   publicly_accessible = false
   skip_final_snapshot = true
+}
+
+resource "aws_db_instance" "ped" {
+  identifier          = "plus-ped-db"
+  engine              = "postgres"
+  engine_version      = "15.3"
+  instance_class      = "db.t3.micro"
+  username            = var.db_user
+  password            = var.db_password
+  db_name             = var.db_name_ped
+  allocated_storage   = 20
+  multi_az            = false
+  publicly_accessible = false
+  skip_final_snapshot = true
+}
+
+# ─── SQS (eventos de pedidos) ─────────────────────────────────────────────────
+
+resource "aws_sqs_queue" "order_events" {
+  name = "plus-order-events"
 }
 
 # ─── API Gateway ──────────────────────────────────────────────────────────────
@@ -161,6 +182,58 @@ resource "aws_api_gateway_integration" "auth_me" {
   uri                     = "http://${var.ms_auth_host}:${var.ms_auth_port}/auth/me"
 }
 
+# ─── Orders (proxy para plus-ms-ped) ─────────────────────────────────────────
+
+resource "aws_api_gateway_resource" "orders" {
+  rest_api_id = aws_api_gateway_rest_api.plus.id
+  parent_id   = aws_api_gateway_rest_api.plus.root_resource_id
+  path_part   = "orders"
+}
+
+resource "aws_api_gateway_method" "orders_root" {
+  rest_api_id   = aws_api_gateway_rest_api.plus.id
+  resource_id   = aws_api_gateway_resource.orders.id
+  http_method   = "ANY"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "orders_root" {
+  rest_api_id             = aws_api_gateway_rest_api.plus.id
+  resource_id             = aws_api_gateway_resource.orders.id
+  http_method             = aws_api_gateway_method.orders_root.http_method
+  type                    = "HTTP_PROXY"
+  integration_http_method = "ANY"
+  uri                     = "http://${var.ms_ped_host}:${var.ms_ped_port}/orders"
+}
+
+resource "aws_api_gateway_resource" "orders_proxy" {
+  rest_api_id = aws_api_gateway_rest_api.plus.id
+  parent_id   = aws_api_gateway_resource.orders.id
+  path_part   = "{proxy+}"
+}
+
+resource "aws_api_gateway_method" "orders_proxy" {
+  rest_api_id   = aws_api_gateway_rest_api.plus.id
+  resource_id   = aws_api_gateway_resource.orders_proxy.id
+  http_method   = "ANY"
+  authorization = "NONE"
+  request_parameters = {
+    "method.request.path.proxy" = true
+  }
+}
+
+resource "aws_api_gateway_integration" "orders_proxy" {
+  rest_api_id             = aws_api_gateway_rest_api.plus.id
+  resource_id             = aws_api_gateway_resource.orders_proxy.id
+  http_method             = aws_api_gateway_method.orders_proxy.http_method
+  type                    = "HTTP_PROXY"
+  integration_http_method = "ANY"
+  uri                     = "http://${var.ms_ped_host}:${var.ms_ped_port}/orders/{proxy}"
+  request_parameters = {
+    "integration.request.path.proxy" = "method.request.path.proxy"
+  }
+}
+
 # ─── Deployment ───────────────────────────────────────────────────────────────
 
 resource "aws_api_gateway_deployment" "plus" {
@@ -172,6 +245,8 @@ resource "aws_api_gateway_deployment" "plus" {
     aws_api_gateway_integration.auth_refresh,
     aws_api_gateway_integration.auth_logout,
     aws_api_gateway_integration.auth_me,
+    aws_api_gateway_integration.orders_root,
+    aws_api_gateway_integration.orders_proxy,
   ]
 }
 
@@ -188,4 +263,19 @@ output "rds_address" {
 output "rds_port" {
   value       = aws_db_instance.auth.port
   description = "Porta TCP do Postgres."
+}
+
+output "rds_ped_address" {
+  value       = aws_db_instance.ped.address
+  description = "Hostname ou IP do Postgres RDS de pedidos (plus_ped)."
+}
+
+output "rds_ped_port" {
+  value       = aws_db_instance.ped.port
+  description = "Porta TCP do Postgres de pedidos."
+}
+
+output "order_events_queue_url" {
+  value       = aws_sqs_queue.order_events.url
+  description = "URL da fila SQS para eventos order.* (plus-ms-ped)."
 }
