@@ -1,0 +1,15 @@
+# Dependencies
+# node_modules/
+
+# Environment
+.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build
+venv/
+__pycache__/
+.pytest_cache/
+*.pyc
