@@ -577,7 +577,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorBody"
     NotImplemented:
-      description: Endpoint documentado; implementação pendente (fase design-first)
+      description: Endpoint documentado; implementação pendente
       content:
         application/json:
           schema:
