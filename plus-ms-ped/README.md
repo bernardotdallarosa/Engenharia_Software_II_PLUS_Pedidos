@@ -8,6 +8,22 @@ O contrato está em [`openapi/openapi.yaml`](./openapi/openapi.yaml) (**v0.2.0**
 
 Rotas de domínio (`/orders/*`) respondem **`501 Not Implemented`** até a implementação completa.
 
+## Persistência (PostgreSQL)
+
+O serviço liga-se à base **`plus_ped`** no arranque e cria as tabelas `orders` e `order_items` se não existirem (`src/database/schema.ts`).
+
+Variáveis: ver [`.env.example`](./.env.example). Em Docker, o `plus-infra` passa `terraform/rds-ped.env` e `DB_NAME=plus_ped`.
+
+Estrutura em camadas (em construção):
+
+| Pasta | Papel |
+|-------|--------|
+| `src/config/database.ts` | Pool `pg` |
+| `src/database/schema.ts` | DDL e bootstrap |
+| `src/repositories/` | Acesso a dados |
+| `src/services/` | Regras de negócio |
+| `src/routes/` | HTTP / Express |
+
 ## Executar localmente
 
 ```bash

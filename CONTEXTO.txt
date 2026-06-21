@@ -1,7 +1,7 @@
 CONTEXTO DO TRABALHO — GRUPO 8 (MS7 PEDIDOS + MFE7)
 Projeto Plus — Sistema de Gestão de Estoque para Loja de Roupas Plus Size
 Disciplina: Engenharia de Software II — PUCRS 2026-1
-Última atualização: 2026-06-14
+Última atualização: 2026-06-21
 
 
 Documento de referência que consolida o enunciado, decisões de arquitetura,
@@ -58,6 +58,19 @@ Documentação complementar no repositório:
 
   Porta local: 3001
   Resposta de login: { access_token, refresh_token, token_type: "bearer" }
+
+  Utilizador inicial (seed da BD, criado no arranque do plus-ms-auth):
+    email:    admindev@admin.com
+    password: Senha123
+    role:     admin
+
+  Registo via API (POST /auth/register): novos utilizadores recebem role vendedor.
+  Regras de senha: 6–10 caracteres, maiúscula, minúscula e dígito.
+
+  Limitação conhecida do Shell (plus-shell): não há React Router. O shell só
+  carrega LoginPage do MFE auth; o link "Criar conta" aponta para /register mas
+  o shell não expõe RegisterPage — a URL muda, a UI de login permanece. Para
+  registar, usar curl no endpoint /auth/register.
 
 2.3 Arquitectura global (professor + cliente)
 
@@ -201,18 +214,23 @@ Documentação complementar no repositório:
 7.1 Implementado
 
   - OpenAPI v0.2.0 (roles, RESERVED, reserva, eventos SQS)
-  - plus-ms-ped: Express + TypeScript; /health funcional; /orders/* retornam 501
+  - plus-ms-ped: Express + TypeScript; /health e /docs funcionais
+  - plus-ms-ped: middleware JWT (Bearer, JWT_SECRET partilhado com auth)
+  - plus-ms-ped: POST /orders — validação, RBAC (admin PURCHASE+SALE; vendedor SALE),
+    persistência em orders/order_items, createdBy = sub do token
+  - plus-ms-ped: demais rotas /orders/* ainda retornam 501 (mas exigem token)
+  - plus-ms-ped: PostgreSQL (plus_ped) — schema orders/order_items, bootstrap no arranque
+  - plus-ms-ped: camadas config/database, database/schema, repositories, services
+  - plus-ms-ped: testes Vitest (health, docs, 401 sem token, 400 payload inválido)
   - plus-mfe-ped: página placeholder (PlaceholderPage) exposta via Federation
   - plus-shell: remotes mfe_auth e mfe_ped; sessão com access_token; navegação Pedidos
-  - plus-infra: compose com ministack, auth, shell e pedidos
+  - plus-infra: compose com ministack, auth, shell e pedidos; rds.env + rds-ped.env
   - Terraform: RDS auth e ped, fila SQS, rotas API Gateway /auth/* e /orders/*
   - Entrega parcial do Swagger (disciplina) — concluída
 
 7.2 Por implementar (entrega final)
 
-  - Lógica de domínio nos endpoints /orders/*
-  - Middleware JWT e RBAC alinhado ao plus-ms-auth
-  - Persistência PostgreSQL (plus_ped): modelos, migrations
+  - GET /orders, GET /orders/{id}, reserve, status, cancel (ainda 501)
   - Publicador de eventos SQS
   - ADR do domínio Pedidos
   - Telas completas no MFE7
@@ -224,8 +242,13 @@ Documentação complementar no repositório:
 7.3 Ficheiros de referência
 
   plus-ms-ped/openapi/openapi.yaml
+  plus-ms-ped/src/config/database.ts
+  plus-ms-ped/src/database/schema.ts
+  plus-ms-ped/src/middleware/auth.ts
   plus-ms-ped/src/routes/orders.ts
-  plus-ms-ped/src/app.ts
+  plus-ms-ped/src/repositories/orderRepository.ts
+  plus-ms-ped/src/services/orderService.ts
+  plus-ms-ped/tests/health.test.ts
   plus-shell/src/App.jsx
   plus-shell/vite.config.js
   plus-infra/docker-compose.yml
@@ -258,6 +281,58 @@ Documentação complementar no repositório:
     - Reset completo: make reset ou docker compose down -v seguido de make setup.
     - O tsconfig do plus-mfe-ped não deve referenciar tipos de teste (vitest,
       jest-dom) sem as dependências correspondentes instaladas.
+    - plus-ms-ped precisa do mesmo JWT_SECRET que plus-ms-auth (variável em
+      plus-infra/.env; docker-compose passa-a para o contentor pedidos).
+    - Após alterar JWT_SECRET ou rds-ped.env: docker compose up -d --force-recreate plus-ms-ped
+    - Após alterar código do plus-ms-ped, rebuild da imagem Docker é obrigatório
+      (o contentor não monta o código fonte; corre dist/ compilado na build):
+      cd plus-infra
+      docker compose build plus-ms-ped
+      docker compose up -d --force-recreate plus-ms-ped
+      Se POST /orders responder not_implemented, a imagem está desatualizada.
+
+8.1 Como obter token e testar POST /orders
+
+  Pré-requisito: stack a correr (make setup) com plus-ms-auth e plus-ms-ped.
+
+  Opção A — login no Shell (http://localhost:3000):
+    email admindev@admin.com, senha Senha123 (utilizador da seed).
+    O token fica em localStorage plus.auth.token na origem :3000.
+    Para curl, copiar o valor ou usar a opção B.
+
+  Opção B — login via curl (recomendado para testar a API de pedidos):
+
+    curl -s -X POST http://localhost:3001/auth/login ^
+      -H "Content-Type: application/json" ^
+      -d "{\"email\":\"admindev@admin.com\",\"password\":\"Senha123\"}"
+
+    (Em bash/Linux, trocar ^ por \ e ajustar aspas.)
+
+    Da resposta JSON, usar o campo access_token.
+
+  Opção C — registar novo utilizador (role vendedor) e depois login:
+
+    curl -s -X POST http://localhost:3001/auth/register ^
+      -H "Content-Type: application/json" ^
+      -d "{\"email\":\"vendedor.teste@loja.com\",\"password\":\"Senha123\"}"
+
+  Criar pedido (admin ou vendedor em SALE; só admin em PURCHASE):
+
+    curl -s -X POST http://localhost:3007/orders ^
+      -H "Authorization: Bearer SEU_ACCESS_TOKEN" ^
+      -H "Content-Type: application/json" ^
+      -d "{\"type\":\"SALE\",\"items\":[{\"productVariantId\":\"var-vestido-marinho-48\",\"quantity\":1}],\"notes\":\"Venda teste\"}"
+
+  Resposta esperada com imagem Docker atualizada: HTTP 201 e JSON com id, status DRAFT,
+  createdBy = email do token.
+
+  Cenários esperados:
+    - Sem token → 401
+    - JWT_SECRET diferente entre auth e pedidos → 401 ou 500 no pedidos
+    - Imagem Docker antiga (sem rebuild) → 501 not_implemented em POST /orders
+    - vendedor + type PURCHASE → 403
+    - admin + type PURCHASE com payload válido → 201
+    - items vazio → 400
 
 
 
@@ -285,12 +360,11 @@ Documentação complementar no repositório:
 11. PRÓXIMOS PASSOS (ORDEM SUGERIDA)
 
 
-  1. Base de dados e migrations (orders, itens) em plus_ped
-  2. Middleware JWT (JWT_SECRET partilhado com plus-ms-auth via ambiente)
-  3. Implementação dos endpoints conforme OpenAPI e RBAC
-  4. Publicador SQS para eventos order.*
-  5. Microfrontend: criação, listagem, reserva, transições de status
-  6. ADR do domínio Pedidos
-  7. CI/CD, manual de UI e testes
-
-
+  1. Base de dados e migrations (orders, itens) em plus_ped  [feito]
+  2. Middleware JWT + POST /orders com RBAC  [feito]
+  3. Restantes endpoints /orders/* (GET, reserve, status, cancel)
+  4. Testes de integração (201 com BD, 403 vendedor/PURCHASE)
+  5. Publicador SQS para eventos order.*
+  6. Microfrontend: criação, listagem, reserva, transições de status
+  7. ADR do domínio Pedidos
+  8. CI/CD, manual de UI

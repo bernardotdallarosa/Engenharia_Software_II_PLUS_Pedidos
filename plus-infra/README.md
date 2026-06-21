@@ -100,7 +100,7 @@ O `make setup`:
 | plus-mfe-ped | http://localhost:4007 | Microfrontend de pedidos |
 | Ministack | http://localhost:4566 | Emulador AWS |
 | API Gateway | `http://localhost:4566/restapis/<api-id>/v1/_user_request_` | Gateway para plus-ms-auth |
-| RDS (PostgreSQL) | Ver `terraform/rds.env` (gerado após `terraform apply`) | O LocalStack coloca o Postgres num sidecar; `DB_HOST` não é `ministack`. |
+| RDS (PostgreSQL) | `terraform/rds.env` (auth) e `terraform/rds-ped.env` (pedidos), gerados após `terraform apply` | O LocalStack coloca cada RDS num sidecar; hosts distintos por instância. |
 
 > **`terraform/rds.env`:** gerado no **host** após `terraform apply` (`make tf-apply` ou passo 3 do `make setup`), com `DB_HOST` / `DB_PORT` do Postgres emulado (muitas vezes um `172.18.x.x` na rede Docker, não o hostname `ministack`). Se o `init-db` falhar com `ECONNREFUSED`, com o Ministack no ar corra `make tf-apply` e depois `docker compose up -d --force-recreate plus-ms-auth`.
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
+import { sign } from "jsonwebtoken";
 import { app } from "../src/app";
 
 describe("GET /health", () => {
@@ -19,11 +20,28 @@ describe("GET /docs", () => {
 });
 
 describe("POST /orders", () => {
-  it("responde 501 até implementação do domínio", async () => {
+  it("rejeita pedidos sem token", async () => {
     const res = await request(app)
       .post("/orders")
       .send({ type: "SALE", items: [{ productVariantId: "x", quantity: 1 }] });
-    expect(res.status).toBe(501);
-    expect(res.body.error).toBe("not_implemented");
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("unauthorized");
+  });
+
+  it("rejeita pedido com token válido mas payload inválido", async () => {
+    process.env.JWT_SECRET = "test-secret";
+    const token = sign(
+      { sub: "vendedor@example.com", role: "vendedor", user_id: 2 },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    const res = await request(app)
+      .post("/orders")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ type: "SALE", items: [] });
+
+    expect(res.status).toBe(400);
   });
 });
