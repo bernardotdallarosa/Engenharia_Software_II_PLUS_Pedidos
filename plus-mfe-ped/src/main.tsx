@@ -1,4 +1,4 @@
 import { createRoot } from "react-dom/client";
-import PlaceholderPage from "./pages/PlaceholderPage";
+import OrdersPage from "./pages/OrdersPage";
 
-createRoot(document.getElementById("root")!).render(<PlaceholderPage />);
+createRoot(document.getElementById("root")!).render(<OrdersPage />);

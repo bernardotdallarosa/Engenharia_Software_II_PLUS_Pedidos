@@ -6,7 +6,23 @@ Microsserviço de **Pedidos e Vendas** (MS7) do projeto **Plus**.
 
 O contrato está em [`openapi/openapi.yaml`](./openapi/openapi.yaml) (**v0.2.0**). UI interativa em **`/docs`**; YAML em **`/openapi.yaml`**.
 
-Rotas de domínio (`/orders/*`) respondem **`501 Not Implemented`** até a implementação completa.
+Rotas de domínio (`/orders/*`) implementadas com JWT, RBAC e persistência em PostgreSQL (`plus_ped`).
+
+## Persistência (PostgreSQL)
+
+O serviço liga-se à base **`plus_ped`** no arranque e cria as tabelas `orders` e `order_items` se não existirem (`src/database/schema.ts`).
+
+Variáveis: ver [`.env.example`](./.env.example). Em Docker, o `plus-infra` passa `terraform/rds-ped.env` e `DB_NAME=plus_ped`.
+
+Estrutura em camadas (em construção):
+
+| Pasta | Papel |
+|-------|--------|
+| `src/config/database.ts` | Pool `pg` |
+| `src/database/schema.ts` | DDL e bootstrap |
+| `src/repositories/` | Acesso a dados |
+| `src/services/` | Regras de negócio |
+| `src/routes/` | HTTP / Express |
 
 ## Executar localmente
 
@@ -28,6 +44,25 @@ npm run dev
 docker build -t plus-ms-ped .
 docker run --rm -p 3007:3007 -e PORT=3007 plus-ms-ped
 ```
+
+## CI/CD e publicação
+
+O workflow do GitHub Actions executa `npm ci`, `npm test` e `npm run build` em cada pull request / push para `main` e `develop`.
+
+A publicação da imagem Docker ocorre em:
+
+- `workflow_dispatch` manual; ou
+- push de tags no formato `v*` (ex.: `v0.2.0`)
+
+Para o release funcionar, o repositório precisa dos seguintes secrets:
+
+- `DOCKERHUB_USERNAME` — nome do utilizador ou organização no Docker Hub
+- `DOCKERHUB_TOKEN` — token de acesso com autorização para publicar imagens
+
+Exemplo de imagem publicada:
+
+- `SEU_USUARIO/plus-ms-ped:latest` — em `workflow_dispatch` ou tag `v*`
+- `SEU_USUARIO/plus-ms-ped:v0.2.0` — apenas em push de tag `v*`
 
 ## Escopo documentado (v0.2.0)
 

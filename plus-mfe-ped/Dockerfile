@@ -3,6 +3,9 @@ FROM node:20-bookworm-slim AS build
 
 WORKDIR /app
 
+ARG VITE_MS_PED_URL=http://localhost:3007
+ENV VITE_MS_PED_URL=$VITE_MS_PED_URL
+
 # Instala dependências aproveitando cache do Docker
 COPY package.json package-lock.json ./
 RUN npm ci
