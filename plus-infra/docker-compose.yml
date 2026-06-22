@@ -94,6 +94,8 @@ services:
     build:
       context: ../plus-mfe-ped
       dockerfile: Dockerfile
+      args:
+        VITE_MS_PED_URL: ${VITE_MS_PED_URL:-http://localhost:3007}
     container_name: plus-mfe-ped
     ports:
       - "${MFE_PED_PORT:-4007}:4007"

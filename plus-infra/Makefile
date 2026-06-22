@@ -1,4 +1,4 @@
-.PHONY: setup up down logs reset tf-init tf-apply sync-vite-gateway rebuild-ms-ped
+.PHONY: setup up down logs reset tf-init tf-apply sync-vite-gateway rebuild-ms-ped rebuild-mfe-ped
 
 COMPOSE       = docker compose
 MINISTACK_URL = http://localhost:4566/_localstack/health
@@ -92,6 +92,13 @@ rebuild-ms-ped: .env
 	$(COMPOSE) build plus-ms-ped
 	$(COMPOSE) up -d --force-recreate plus-ms-ped
 	@echo "[make] plus-ms-ped em http://localhost:3007"
+
+# Rebuild do MFE pedidos + shell (remote OrdersPage e variáveis de build)
+rebuild-mfe-ped: .env
+	@echo "[make] Rebuild e restart do plus-mfe-ped e plus-shell..."
+	$(COMPOSE) build plus-mfe-ped plus-shell
+	$(COMPOSE) up -d --force-recreate plus-mfe-ped plus-shell
+	@echo "[make] Shell em http://localhost:3000 — MFE pedidos em http://localhost:4007"
 
 # Para e remove os containers
 down:

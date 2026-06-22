@@ -9,7 +9,7 @@ export default defineConfig({
       name: "mfe_ped",
       filename: "remoteEntry.js",
       exposes: {
-        "./PlaceholderPage": "./src/pages/PlaceholderPage.tsx",
+        "./OrdersPage": "./src/pages/OrdersPage.tsx",
       },
       shared: ["react", "react-dom"],
     }),

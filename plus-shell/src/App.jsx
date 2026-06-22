@@ -12,7 +12,7 @@ const ACCESS_TOKEN_KEY = "plus.auth.token";
 const REFRESH_TOKEN_KEY = "plus.auth.refresh";
 
 const LoginPage = lazy(() => import("mfe_auth/LoginPage"));
-const PedidosPage = lazy(() => import("mfe_ped/PlaceholderPage"));
+const PedidosPage = lazy(() => import("mfe_ped/OrdersPage"));
 
 class RemoteErrorBoundary extends Component {
   constructor(props) {

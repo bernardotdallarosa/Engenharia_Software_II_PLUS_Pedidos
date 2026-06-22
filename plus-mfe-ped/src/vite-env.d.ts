@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_MS_AUTH_URL: string;
+  readonly VITE_MS_PED_URL: string;
 }
 
 interface ImportMeta {

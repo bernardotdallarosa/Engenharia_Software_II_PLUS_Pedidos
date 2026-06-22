@@ -88,7 +88,8 @@ O `make setup`:
 | `make tf-init` | Inicializa os providers Terraform |
 | `make tf-apply` | Provisiona os recursos no Ministack via Terraform |
 | `make sync-vite-gateway` | Escreve `VITE_MS_AUTH_URL` no `.env` a partir do output do Terraform (útil se não correr `make setup` completo) |
-| `make rebuild-ms-ped` | Rebuild da imagem Docker do `plus-ms-ped` e restart do contentor (obrigatório após alterar código do MS) |
+| `make rebuild-ms-ped` | Rebuild da imagem Docker do `plus-ms-ped` e restart do contentor |
+| `make rebuild-mfe-ped` | Rebuild do `plus-mfe-ped` + `plus-shell` e restart (após alterar UI ou remote) |
 
 ## URLs e portas locais
 

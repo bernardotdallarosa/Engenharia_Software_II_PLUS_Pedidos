@@ -1,7 +1,7 @@
 CONTEXTO DO TRABALHO — GRUPO 8 (MS7 PEDIDOS + MFE7)
 Projeto Plus — Sistema de Gestão de Estoque para Loja de Roupas Plus Size
 Disciplina: Engenharia de Software II — PUCRS 2026-1
-Última atualização: 2026-06-21
+Última atualização: 2026-06-22
 
 
 Documento de referência que consolida o enunciado, decisões de arquitetura,
@@ -223,16 +223,16 @@ Documentação complementar no repositório:
   - plus-ms-ped: testes Vitest (12 testes — auth, listagem, transições, cancel RBAC)
   - plus-ms-ped: publicador SQS (order.reserved, order.confirmed, order.reservation.released)
   - plus-infra: make rebuild-ms-ped — rebuild Docker do ms-ped após alterações de código
-  - plus-mfe-ped: página placeholder (PlaceholderPage) exposta via Federation
-  - plus-shell: remotes mfe_auth e mfe_ped; sessão com access_token; navegação Pedidos
+  - plus-mfe-ped: OrdersPage (listagem, criar, detalhe, ações reserve/confirm/complete/cancel)
+  - plus-shell: remote mfe_ped/OrdersPage
   - plus-infra: compose com ministack, auth, shell e pedidos; rds.env + rds-ped.env
   - Terraform: RDS auth e ped, fila SQS, rotas API Gateway /auth/* e /orders/*
   - Entrega parcial do Swagger (disciplina) — concluída
+  - ADR do domínio Pedidos — ADR.md (raiz workspace Grupo 8)
 
 7.2 Por implementar (entrega final)
 
-  - Telas completas no MFE7 (substituir PlaceholderPage)
-  - Manual de UI
+  - Manual de UI do MFE7
   - CI/CD com releases (Docker Hub + NPM)
   - Testes unitários com cobertura adequada
   - Integração definitiva com MS4 quando houver contrato
@@ -358,7 +358,8 @@ Documentação complementar no repositório:
 
   1. Base de dados e migrations (orders, itens) em plus_ped  [feito]
   2. Middleware JWT + todos os endpoints /orders/* com RBAC  [feito]
-  3. Publicador SQS para eventos order.  [feito]
-  4. Microfrontend: criação, listagem, reserva, transições de status
-  5. ADR do domínio Pedidos
-  6. CI/CD, manual de UI
+  3. Publicador SQS para eventos order.*  [feito]
+  4. Microfrontend OrdersPage  [feito]
+  5. ADR do domínio Pedidos  [feito]
+  6. CI/CD (GitHub Actions, releases Docker/NPM)
+  7. Manual de UI do MFE7
