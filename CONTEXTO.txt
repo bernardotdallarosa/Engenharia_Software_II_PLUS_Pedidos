@@ -216,12 +216,13 @@ Documentação complementar no repositório:
   - OpenAPI v0.2.0 (roles, RESERVED, reserva, eventos SQS)
   - plus-ms-ped: Express + TypeScript; /health e /docs funcionais
   - plus-ms-ped: middleware JWT (Bearer, JWT_SECRET partilhado com auth)
-  - plus-ms-ped: POST /orders — validação, RBAC (admin PURCHASE+SALE; vendedor SALE),
-    persistência em orders/order_items, createdBy = sub do token
-  - plus-ms-ped: demais rotas /orders/* ainda retornam 501 (mas exigem token)
+  - plus-ms-ped: todos os endpoints /orders/* implementados (CRUD ciclo de vida:
+    create, list, get, reserve, patch status, cancel) com RBAC admin/vendedor
   - plus-ms-ped: PostgreSQL (plus_ped) — schema orders/order_items, bootstrap no arranque
   - plus-ms-ped: camadas config/database, database/schema, repositories, services
-  - plus-ms-ped: testes Vitest (health, docs, 401 sem token, 400 payload inválido)
+  - plus-ms-ped: testes Vitest (12 testes — auth, listagem, transições, cancel RBAC)
+  - plus-ms-ped: publicador SQS (order.reserved, order.confirmed, order.reservation.released)
+  - plus-infra: make rebuild-ms-ped — rebuild Docker do ms-ped após alterações de código
   - plus-mfe-ped: página placeholder (PlaceholderPage) exposta via Federation
   - plus-shell: remotes mfe_auth e mfe_ped; sessão com access_token; navegação Pedidos
   - plus-infra: compose com ministack, auth, shell e pedidos; rds.env + rds-ped.env
@@ -230,10 +231,7 @@ Documentação complementar no repositório:
 
 7.2 Por implementar (entrega final)
 
-  - GET /orders, GET /orders/{id}, reserve, status, cancel (ainda 501)
-  - Publicador de eventos SQS
-  - ADR do domínio Pedidos
-  - Telas completas no MFE7
+  - Telas completas no MFE7 (substituir PlaceholderPage)
   - Manual de UI
   - CI/CD com releases (Docker Hub + NPM)
   - Testes unitários com cobertura adequada
@@ -284,12 +282,10 @@ Documentação complementar no repositório:
     - plus-ms-ped precisa do mesmo JWT_SECRET que plus-ms-auth (variável em
       plus-infra/.env; docker-compose passa-a para o contentor pedidos).
     - Após alterar JWT_SECRET ou rds-ped.env: docker compose up -d --force-recreate plus-ms-ped
-    - Após alterar código do plus-ms-ped, rebuild da imagem Docker é obrigatório
-      (o contentor não monta o código fonte; corre dist/ compilado na build):
-      cd plus-infra
-      docker compose build plus-ms-ped
-      docker compose up -d --force-recreate plus-ms-ped
-      Se POST /orders responder not_implemented, a imagem está desatualizada.
+    - Após alterar código do plus-ms-ped, rebuild da imagem Docker é obrigatório:
+      cd plus-infra && make rebuild-ms-ped
+      (equivalente a docker compose build + force-recreate)
+      Se endpoints responderem not_implemented, a imagem está desatualizada.
 
 8.1 Como obter token e testar POST /orders
 
@@ -361,10 +357,8 @@ Documentação complementar no repositório:
 
 
   1. Base de dados e migrations (orders, itens) em plus_ped  [feito]
-  2. Middleware JWT + POST /orders com RBAC  [feito]
-  3. Restantes endpoints /orders/* (GET, reserve, status, cancel)
-  4. Testes de integração (201 com BD, 403 vendedor/PURCHASE)
-  5. Publicador SQS para eventos order.*
-  6. Microfrontend: criação, listagem, reserva, transições de status
-  7. ADR do domínio Pedidos
-  8. CI/CD, manual de UI
+  2. Middleware JWT + todos os endpoints /orders/* com RBAC  [feito]
+  3. Publicador SQS para eventos order.  [feito]
+  4. Microfrontend: criação, listagem, reserva, transições de status
+  5. ADR do domínio Pedidos
+  6. CI/CD, manual de UI

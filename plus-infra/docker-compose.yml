@@ -84,7 +84,7 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
-      - ORDER_EVENTS_QUEUE_URL=${ORDER_EVENTS_QUEUE_URL:-}
+      - ORDER_EVENTS_QUEUE_URL=${ORDER_EVENTS_QUEUE_URL:-http://ministack:4566/000000000000/plus-order-events}
     depends_on:
       ministack:
         condition: service_healthy
