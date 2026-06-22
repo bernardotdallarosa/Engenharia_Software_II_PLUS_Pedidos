@@ -2,6 +2,13 @@
   "name": "plus-mfe-ped",
   "version": "0.1.0",
   "description": "Microfrontend de Pedidos (MFE7) — projeto Plus",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "vite --port 4007",
     "build": "tsc --noEmit && vite build",

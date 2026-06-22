@@ -225,15 +225,16 @@ Documentação complementar no repositório:
   - plus-infra: make rebuild-ms-ped — rebuild Docker do ms-ped após alterações de código
   - plus-mfe-ped: OrdersPage (listagem, criar, detalhe, ações reserve/confirm/complete/cancel)
   - plus-shell: remote mfe_ped/OrdersPage
+  - CI/CD: workflows em plus-ms-ped e plus-mfe-ped (test/build + release Docker Hub / NPM em tag v* ou manual)
   - plus-infra: compose com ministack, auth, shell e pedidos; rds.env + rds-ped.env
   - Terraform: RDS auth e ped, fila SQS, rotas API Gateway /auth/* e /orders/*
   - Entrega parcial do Swagger (disciplina) — concluída
   - ADR do domínio Pedidos — ADR.md (raiz workspace Grupo 8)
+  - Manual de UI do MFE7 — `plus-mfe-ped/Manual_UI.md`
 
 7.2 Por implementar (entrega final)
 
-  - Manual de UI do MFE7
-  - CI/CD com releases (Docker Hub + NPM)
+  - Publicação real no Docker Hub / NPM (depende de secrets configurados no GitHub)
   - Testes unitários com cobertura adequada
   - Integração definitiva com MS4 quando houver contrato
 
@@ -361,5 +362,5 @@ Documentação complementar no repositório:
   3. Publicador SQS para eventos order.*  [feito]
   4. Microfrontend OrdersPage  [feito]
   5. ADR do domínio Pedidos  [feito]
-  6. CI/CD (GitHub Actions, releases Docker/NPM)
-  7. Manual de UI do MFE7
+  6. CI/CD (GitHub Actions, releases Docker Hub + NPM)  [feito]
+  7. Manual de UI do MFE7  [feito]
