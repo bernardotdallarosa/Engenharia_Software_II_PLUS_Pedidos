@@ -78,6 +78,7 @@ jobs:
           cache: npm
           cache-dependency-path: plus-mfe-ped/package-lock.json
           registry-url: https://registry.npmjs.org
+          scope: "@bernardotdallarosa"
 
       - name: Instalar dependências
         run: npm ci

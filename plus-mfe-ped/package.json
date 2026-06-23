@@ -1,13 +1,14 @@
 {
-  "name": "plus-mfe-ped",
-  "version": "0.1.0",
+  "name": "@bernardotdallarosa/plus-mfe-ped",
+  "version": "0.2.0",
   "description": "Microfrontend de Pedidos (MFE7) — projeto Plus",
   "license": "MIT",
   "files": [
     "dist"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
     "dev": "vite --port 4007",
