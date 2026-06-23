@@ -37,4 +37,4 @@ Antes de cada release, incremente `version` em `package.json` (o NPM rejeita rep
 
 Exemplo de pacote publicado:
 
-- `@SEU_USUARIO/plus-mfe-ped` (recomendado usar scope no `name` do `package.json` se o nome simples estiver ocupado)
+- `@bernardotdallarosa/plus-mfe-ped` (recomendado usar scope no `name` do `package.json` se o nome simples estiver ocupado)
