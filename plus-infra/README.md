@@ -8,7 +8,7 @@ Orquestra os microsserviços, microfrontends e a stack AWS local (Ministack) via
 
 ## Pré-requisitos
 
-| Ferramenta | Versão mínima |
+| Ferramenta | Versão mínima |cd
 |---|---|
 | Docker | 24+ |
 | Terraform | 1.15.3+ |
