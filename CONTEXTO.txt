@@ -109,8 +109,8 @@ Documentação complementar no repositório:
     - Histórico de saídas
     - Reserva de grade
 
-  Integrações previstas:
-    - MS4 Estoque — baixa via evento assíncrono ao confirmar
+  Integrações previstas (arquitetura global):
+    - MS4 Estoque — baixa via evento assíncrono ao confirmar (junção entre equipes, mas fora do escopo dessa entrega: MS4 não disponível a tempo)
     - MS9 Relatórios — consumo indirecto de eventos
     - MS Auth — JWT em endpoints protegidos
 
@@ -187,10 +187,15 @@ Documentação complementar no repositório:
 
 5.2 Integração com MS4 (Estoque)
 
-  O contrato do microsserviço de Estoque ainda não está disponível.
-  Previsto: publicação de eventos pelo MS Pedidos; consumidor a definir
-  quando o contrato entre equipas existir.
-  Output Terraform: order_events_queue_url
+  O MS4 não estará disponível em tempo hábil para junção na entrega deste trabalho.
+  O Grupo 8 entrega o domínio Pedidos completo (MS7 + MFE7) com publicação de
+  eventos assíncronos; a ligação ao estoque é evolução futura quando o contrato
+  entre equipes existir e o MS4 estiver operacional.
+
+  Nesta entrega: MS Pedidos atua apenas como produtor (fila `plus-order-events`).
+  Mock documentado do consumidor: `plus-infra/scripts/mock-ms4-consumer.ps1`
+  (contrato assumido; substituível pelo MS4 real).
+  Output Terraform: order_events_queue_url (infra preparada localmente).
 
 
 
@@ -220,7 +225,8 @@ Documentação complementar no repositório:
     create, list, get, reserve, patch status, cancel) com RBAC admin/vendedor
   - plus-ms-ped: PostgreSQL (plus_ped) — schema orders/order_items, bootstrap no arranque
   - plus-ms-ped: camadas config/database, database/schema, repositories, services
-  - plus-ms-ped: testes Vitest (12 testes — auth, listagem, transições, cancel RBAC)
+  - plus-ms-ped: testes Vitest (36 testes — auth, service, publisher SQS, rotas /orders/*)
+  - plus-ms-ped: `npm run test:coverage` (metas em vitest.config.ts)
   - plus-ms-ped: publicador SQS (order.reserved, order.confirmed, order.reservation.released)
   - plus-infra: make rebuild-ms-ped — rebuild Docker do ms-ped após alterações de código
   - plus-mfe-ped: OrdersPage (listagem, criar, detalhe, ações reserve/confirm/complete/cancel)
@@ -236,7 +242,11 @@ Documentação complementar no repositório:
 
   - Publicação real no Docker Hub / NPM (depende de secrets configurados no GitHub)
   - Testes unitários com cobertura adequada
-  - Integração definitiva com MS4 quando houver contrato
+
+7.2.1 Fora desta entrega (evolução futura)
+
+  - Junção ponta-a-ponta com MS4 Estoque (consumidor e baixa de saldo)
+  - Deploy AWS em produção (ponto extra da disciplina)
 
 7.3 Ficheiros de referência
 
@@ -341,7 +351,8 @@ Documentação complementar no repositório:
   - MS Pedidos na porta 3007, não na 3001
   - createdBy armazena o email (sub), não o user_id
   - OpenAPI e implementação devem permanecer alinhados
-  - Contrato do MS Estoque tratado de forma provisória até acordo entre equipas
+  - Contrato do MS Estoque: eventos publicados pelo MS7; junção com MS4 prevista
+    na arquitetura global mas não faz parte desta entrega
 
 
 

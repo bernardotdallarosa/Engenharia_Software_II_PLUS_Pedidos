@@ -71,7 +71,7 @@ O microsserviço publica eventos assíncronos na fila SQS `plus-order-events` pa
 - `order.confirmed` - quando o pedido entra em `CONFIRMED`;
 - `order.reservation.released` - quando a reserva é liberada por cancelamento.
 
-Esses eventos são projetados para permitir a integração futura com o domínio de estoque (MS4). No momento, o contrato exato do consumidor ainda não está fechado; o MS Pedidos atua apenas como **produtor**. A publicação é *best-effort*: falhas na fila são logadas e não impedem a conclusão da operação HTTP.
+Esses eventos são projetados para permitir a integração futura com o domínio de estoque (MS4). **A junção com o MS4 real não faz parte desta entrega** (MS4 indisponível a tempo). Está documentado um **contrato assumido** (payload em `orderEventPublisher.ts` / OpenAPI) e disponibilizado o script `plus-infra/scripts/mock-ms4-consumer.ps1` para simular a baixa de stock na demo local - substituível pelo MS4 quando existir.
 
 ## 5. FLUXO
 
@@ -117,7 +117,7 @@ O fluxo básico do domínio é:
 | Alternativa | Prós | Contras / motivo da rejeição |
 |-------------|------|------------------------------|
 | Baixa de estoque síncrona (HTTP direto no MS4) | Resposta imediata de saldo | Acoplamento temporal; MS4 sem contrato fechado; falhas em cascata |
-| Eventos SQS pelo MS Pedidos | Desacoplamento; alinhado ao ADR global da disciplina | Consistência eventual; consumidor ainda pendente - **escolhida** |
+| Eventos SQS pelo MS Pedidos | Desacoplamento; alinhado ao ADR global da disciplina | Consistência eventual; consumidor MS4 fora desta entrega — **escolhida** |
 | Mesmo banco do MS Auth | Setup mais simples | Viola database-per-service; acoplamento entre domínios |
 | Validação JWT só no API Gateway | Menos lógica nos MSs | Em dev local o MFE chama o MS direto; MS valida com `JWT_SECRET` compartilhado - **escolhida para o par MS7/MFE7** |
 | Monolito Pedidos+Estoque no Grupo 8 | Menos rede | Não atende divisão por domínio da disciplina; impede trabalho paralelo entre grupos |
