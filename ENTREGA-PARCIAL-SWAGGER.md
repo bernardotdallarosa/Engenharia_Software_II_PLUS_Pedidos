@@ -20,7 +20,7 @@ Abrir no browser:
 | http://localhost:3007/openapi.yaml | Contrato YAML para download/revisão |
 | http://localhost:3007/health | Health check (implementado) |
 
-Endpoints `/orders/*` respondem **501** — contrato definido, implementação a seguir.
+Endpoints `/orders/*` estão **implementados** (JWT, RBAC, PostgreSQL). A entrega parcial original documentava o contrato antes da implementação completa.
 
 ## Stack local completa (auth + pedidos)
 
@@ -43,7 +43,7 @@ make setup             # Ministack + Terraform + todos os serviços
 - **Tipos:** `PURCHASE` (entrada) e `SALE` (venda/saída).
 - **Status:** `DRAFT` → `RESERVED` → `CONFIRMED` → `COMPLETED`; cancelamento em `CANCELLED`.
 - **Roles:** `admin` e `vendedor` (JWT do `plus-ms-auth`). `createdBy` = email (`sub`).
-- **Estoque:** eventos `order.reserved`, `order.confirmed`, `order.reservation.released` (SQS; publicador pendente).
+- **Estoque:** eventos `order.reserved`, `order.confirmed`, `order.reservation.released` publicados via SQS; junção com MS4 **fora desta entrega** (evolução futura).
 - **Pagamento / troca / devolução:** fora do escopo desta versão.
 
 ## Repositórios

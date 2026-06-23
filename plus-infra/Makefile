@@ -1,4 +1,4 @@
-.PHONY: setup up down logs reset tf-init tf-apply sync-vite-gateway rebuild-ms-ped rebuild-mfe-ped
+.PHONY: setup up down logs reset tf-init tf-apply sync-vite-gateway rebuild-ms-ped rebuild-mfe-ped ensure-env
 
 COMPOSE       = docker compose
 MINISTACK_URL = http://localhost:4566/_localstack/health
@@ -15,8 +15,10 @@ tf-apply:
 sync-vite-gateway:
 	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-vite-gateway-url.ps1
 
-.env:
-	@powershell -NoProfile -ExecutionPolicy Bypass -Command "if (-not (Test-Path '.env')) { Copy-Item '.env.example' '.env'; Write-Host '[make] Arquivo .env não encontrado. Copiado de .env.example.'; Write-Host '[make] Revise JWT_SECRET etc. e rode make setup novamente.'; exit 1 }"
+ensure-env:
+	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ensure-env.ps1
+
+.env: ensure-env
 
 else
 
@@ -48,13 +50,10 @@ tf-apply:
 sync-vite-gateway:
 	@sh scripts/sync-vite-gateway-url.sh
 
-.env:
-	@if [ ! -f .env ]; then \
-		echo "[make] Arquivo .env não encontrado. Copiando .env.example..."; \
-		cp .env.example .env; \
-		echo "[make] Edite o arquivo .env com suas configurações e rode make setup novamente."; \
-		exit 1; \
-	fi
+ensure-env:
+	@sh scripts/ensure-env.sh
+
+.env: ensure-env
 
 endif
 

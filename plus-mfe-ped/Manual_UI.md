@@ -7,7 +7,7 @@ Antes de usar a tela de Pedidos, certifique-se de que o ambiente local está em 
 O fluxo de uso deve ser feito sempre pelo Shell:
 
 - Endereço do Shell: `http://localhost:3000`
-- Não aceda ao MFE de Pedidos diretamente em `http://localhost:4007` para uso normal, pois o token de autenticação e o carregamento do Shell são necessários.
+- Não acesse o MFE de Pedidos diretamente em `http://localhost:4007` para uso normal, pois o token de autenticação e o carregamento do Shell são necessários.
 
 Credenciais de teste:
 

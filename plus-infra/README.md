@@ -52,15 +52,15 @@ git clone <url-plus-infra>    plus-infra
 ```bash
 cd plus-infra
 
-# 1. Copie e edite as variáveis de ambiente
+# 1. Copie e edite as variáveis de ambiente (ou deixe o make gerar o JWT)
 cp .env.example .env
-# Edite .env conforme necessário (JWT_SECRET em especial)
+# make setup / make ensure-env gera JWT_SECRET automaticamente se ainda for placeholder
 
 # 2. Sobe toda a stack
 make setup
 ```
 
-Para a variável `JWT_SECRET`, deve-se trocar o placeholder por um valor apropriado (ex.: gerado em https://jwtsecretkeygenerator.com/)
+O `make setup` (e o alvo `make ensure-env`) cria o `.env` a partir do exemplo e gera `JWT_SECRET` automaticamente quando o valor ainda é placeholder (`change-me-in-production`, etc.). Não é preciso editar, com exceção se quiser um segredo fixo entre máquinas.
 
 O `make setup`:
 1. Inicializa os providers Terraform (`terraform init`)

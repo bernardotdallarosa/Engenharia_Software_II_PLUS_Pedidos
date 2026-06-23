@@ -77,7 +77,7 @@ Exemplo de imagem publicada:
 
 **Roles:** `admin` / `vendedor` (JWT do `plus-ms-auth`).  
 **Fora do escopo:** pagamentos, trocas, devoluções.  
-**Estoque:** eventos SQS documentados; integração MS4 pendente.
+**Estoque:** MS7 publica eventos SQS (`order.*`); junção com MS4 Estoque prevista na arquitetura global.
 
 ## Stack completa
 
@@ -87,4 +87,5 @@ Ver [`plus-infra/README.md`](../plus-infra/README.md) — `make setup` sobe auth
 
 ```bash
 npm test
+npm run test:coverage   # relatório HTML em coverage/
 ```

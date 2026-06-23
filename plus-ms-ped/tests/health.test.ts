@@ -49,9 +49,51 @@ describe("POST /orders", () => {
 
     expect(res.status).toBe(400);
   });
+
+  it("cria pedido SALE com token válido", async () => {
+    vi.spyOn(orderRepository, "createOrder").mockResolvedValue(undefined);
+    vi.spyOn(orderRepository, "getOrderById").mockResolvedValue({
+      id: "order-new",
+      type: "SALE",
+      status: "DRAFT",
+      items: [{ id: "item-1", productVariantId: "var-1", quantity: 1 }],
+      supplierRef: null,
+      notes: null,
+      createdBy: "vendedor@example.com",
+      reservedAt: null,
+      confirmedAt: null,
+      completedAt: null,
+      cancelledAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const token = makeToken("vendedor");
+    const res = await request(app)
+      .post("/orders")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ type: "SALE", items: [{ productVariantId: "var-1", quantity: 1 }] });
+
+    expect(res.status).toBe(201);
+    expect(res.body.status).toBe("DRAFT");
+  });
+
+  it("bloqueia PURCHASE para vendedor", async () => {
+    const token = makeToken("vendedor");
+    const res = await request(app)
+      .post("/orders")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ type: "PURCHASE", items: [{ productVariantId: "var-1", quantity: 1 }] });
+
+    expect(res.status).toBe(403);
+  });
 });
 
 describe("POST /orders/:orderId/reserve", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("retorna 404 quando pedido não existe", async () => {
     vi.spyOn(orderRepository, "getOrderById").mockResolvedValue(null);
     const token = makeToken("admin");
@@ -61,6 +103,47 @@ describe("POST /orders/:orderId/reserve", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(res.status).toBe(404);
+  });
+
+  it("reserva pedido em DRAFT", async () => {
+    vi.spyOn(orderRepository, "getOrderById").mockResolvedValue({
+      id: "order-1",
+      type: "SALE",
+      status: "DRAFT",
+      items: [{ id: "item-1", productVariantId: "var-1", quantity: 1 }],
+      supplierRef: null,
+      notes: null,
+      createdBy: "vendedor@example.com",
+      reservedAt: null,
+      confirmedAt: null,
+      completedAt: null,
+      cancelledAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    vi.spyOn(orderRepository, "updateOrderStatus").mockResolvedValue({
+      id: "order-1",
+      type: "SALE",
+      status: "RESERVED",
+      items: [{ id: "item-1", productVariantId: "var-1", quantity: 1 }],
+      supplierRef: null,
+      notes: null,
+      createdBy: "vendedor@example.com",
+      reservedAt: new Date(),
+      confirmedAt: null,
+      completedAt: null,
+      cancelledAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const token = makeToken("admin");
+    const res = await request(app)
+      .post("/orders/order-1/reserve")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("RESERVED");
   });
 });
 
@@ -158,9 +241,39 @@ describe("PATCH /orders/:orderId/status", () => {
 
     expect(res.status).toBe(403);
   });
+
+  it("rejeita status inválido", async () => {
+    vi.spyOn(orderRepository, "getOrderById").mockResolvedValue({
+      id: "order-1",
+      type: "SALE",
+      status: "DRAFT",
+      items: [],
+      supplierRef: null,
+      notes: null,
+      createdBy: "vendedor@example.com",
+      reservedAt: null,
+      confirmedAt: null,
+      completedAt: null,
+      cancelledAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const token = makeToken("admin");
+    const res = await request(app)
+      .patch("/orders/order-1/status")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "INVALID" });
+
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("POST /orders/:orderId/cancel", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("retorna 403 quando vendedor tenta cancelar pedido de outro", async () => {
     vi.spyOn(orderRepository, "getOrderById").mockResolvedValue({
       id: "order-1",
@@ -184,6 +297,47 @@ describe("POST /orders/:orderId/cancel", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(res.status).toBe(403);
+  });
+
+  it("cancela pedido próprio do vendedor", async () => {
+    vi.spyOn(orderRepository, "getOrderById").mockResolvedValue({
+      id: "order-1",
+      type: "SALE",
+      status: "DRAFT",
+      items: [],
+      supplierRef: null,
+      notes: null,
+      createdBy: "vendedor@example.com",
+      reservedAt: null,
+      confirmedAt: null,
+      completedAt: null,
+      cancelledAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    vi.spyOn(orderRepository, "updateOrderStatus").mockResolvedValue({
+      id: "order-1",
+      type: "SALE",
+      status: "CANCELLED",
+      items: [],
+      supplierRef: null,
+      notes: null,
+      createdBy: "vendedor@example.com",
+      reservedAt: null,
+      confirmedAt: null,
+      completedAt: null,
+      cancelledAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const token = makeToken("vendedor");
+    const res = await request(app)
+      .post("/orders/order-1/cancel")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("CANCELLED");
   });
 });
 
