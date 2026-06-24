@@ -74,9 +74,8 @@ function Receive-SqsMessagesViaCli {
         "--output", "json"
 
     $output = & $Cli @args 2>$null
-    if ($LASTEXITCODE -ne 0 -or -not $output) {
-        return $null
-    }
+    if ((Test-Path variable:LASTEXITCODE) -and $LASTEXITCODE -ne 0) { return $null }
+    if (-not $output) { return $null }
 
     return ($output | Out-String).Trim()
 }
@@ -103,9 +102,8 @@ function Receive-SqsMessagesViaDocker {
         --wait-time-seconds 2 `
         --output json 2>$null
 
-    if ($LASTEXITCODE -ne 0 -or -not $output) {
-        return $null
-    }
+    if ((Test-Path variable:LASTEXITCODE) -and $LASTEXITCODE -ne 0) { return $null }
+    if (-not $output) { return $null }
 
     return ($output | Out-String).Trim()
 }
@@ -125,10 +123,11 @@ function Receive-SqsMessagesViaHttp {
         WaitTimeSeconds      = "2"
     }
 
-    $response = Invoke-WebRequest -Uri $Endpoint.TrimEnd("/") + "/" `
+    $uri = ($Endpoint.TrimEnd('/') + '/')
+    $response = Invoke-WebRequest -Uri $uri `
         -Method POST `
         -Body $form `
-        -ContentType "application/x-www-form-urlencoded" `
+        -ContentType 'application/x-www-form-urlencoded' `
         -UseBasicParsing
 
     [xml]$xml = $response.Content
