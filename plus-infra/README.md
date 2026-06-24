@@ -1,6 +1,6 @@
 # plus-infra
 
-Repositório de infraestrutura local do projeto **Plus** — sistema de gestão de estoque de roupas.
+Repositório de infraestrutura local do projeto **Plus** - sistema de gestão de estoque de roupas.
 
 Orquestra microsserviços, microfrontends e Ministack (LocalStack) via Docker Compose. O Terraform provisiona S3, RDS emulado, API Gateway e SQS.
 
@@ -65,7 +65,7 @@ O `make setup` executa, em sequência:
 6. Rebuild de `plus-mfe-auth`, `plus-mfe-ped` e `plus-shell`
 7. `docker compose up -d` de todos os serviços
 
-**Login de teste:** http://localhost:3000 — `admindev@admin.com` / `Senha123`
+**Login de teste:** http://localhost:3000 - `admindev@admin.com` / `Senha123`
 
 > **Primeira vez:** não use só `docker compose up`. Sem Terraform e sem os `rds*.env` gerados, os microsserviços falham com `ECONNREFUSED` em `:5432`. Os ficheiros `rds.env` / `rds-ped.env` não vão para o git (ver `terraform/rds.env.example`).
 
@@ -92,7 +92,7 @@ O `.env` guarda o URL do **API Gateway** (Terraform). No build dos MFEs, `VITE_M
 | Comando | Descrição |
 |---------|-----------|
 | `make setup` | Setup completo (recomendado na primeira vez) |
-| `make up` | Só sobe contentores — exige Ministack + `make tf-apply` já corridos |
+| `make up` | Só sobe contentores - exige Ministack + `make tf-apply` já corridos |
 | `make down` | Para os contentores |
 | `make logs` | Logs em tempo real |
 | `make reset` | Remove volumes e refaz `make setup` |
@@ -163,6 +163,6 @@ plus-ms-inventory:
 MS_INVENTORY_PORT=3002
 ```
 
-4. **Rotas ou recursos AWS extras** — adicione em `terraform/main.tf` (seguir padrões de S3, RDS, API Gateway).
+4. **Rotas ou recursos AWS extras** - adicione em `terraform/main.tf` (seguir padrões de S3, RDS, API Gateway).
 
 5. **Recrie a stack:** `make reset` (ou `make tf-apply` + `docker compose up -d --build` se a alteração for pontual).

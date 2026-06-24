@@ -1,6 +1,7 @@
 # Escreve terraform/rds.env apos terraform apply (Windows / mesmo fluxo que o Makefile).
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+. "$PSScriptRoot\_ps-lib.ps1"
 
 $Root = Split-Path -Parent $PSScriptRoot
 $TfDir = Join-Path $Root "terraform"
@@ -8,9 +9,14 @@ $TfDir = Join-Path $Root "terraform"
 Push-Location $TfDir
 try {
     $authAddr = terraform output -raw rds_address
+    Assert-ExternalExit
     $authPort = terraform output -raw rds_port
+    Assert-ExternalExit
     $pedAddr = terraform output -raw rds_ped_address
+    Assert-ExternalExit
     $pedPort = terraform output -raw rds_ped_port
+    Assert-ExternalExit
+
     $utf8 = New-Object System.Text.UTF8Encoding $false
 
     $authPath = Join-Path $TfDir "rds.env"

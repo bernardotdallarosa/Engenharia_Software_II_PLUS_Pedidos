@@ -48,7 +48,9 @@ if ($needsSecret) {
     }
 
     Set-Content -Path $EnvFile -Value $lines -Encoding utf8
-    Write-Host "[ensure-env] JWT_SECRET gerado automaticamente (não commite o .env)."
+    Write-Host '[ensure-env] JWT_SECRET gerado automaticamente (nao commite o .env).'
 } else {
-    Write-Host "[ensure-env] JWT_SECRET já definido em $EnvFile."
+    Write-Host "[ensure-env] JWT_SECRET ja definido em $EnvFile."
 }
+
+exit 0
