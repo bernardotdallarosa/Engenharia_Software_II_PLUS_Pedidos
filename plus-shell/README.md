@@ -1,8 +1,8 @@
 # plus-shell
 
-Host **Plus** com **Module Federation** (`@originjs/vite-plugin-federation`): consome o remote `mfe_auth` e expõe o `LoginPage` do `plus-mfe-auth`. Sessão em `localStorage` na origem `:3000`; após login, o estado local alterna para o dashboard (sem React Router, para evitar os problemas de navegação vistos antes).
+Host **Plus** com **Module Federation** (`@originjs/vite-plugin-federation`): consome os remotes `mfe_auth` (login) e `mfe_ped` (Pedidos). Sessão em `localStorage` na origem `:3000`; após login, o estado local alterna para o dashboard (sem React Router).
 
-Decisões de arquitetura: [**ADR-0001**](../ADR-0001-arquitetura-stack-plus.md).
+Decisões do domínio Pedidos: [**ADR.md**](../ADR.md) na raiz do monorepo.
 
 **Salvaguardas (integração):**
 
@@ -24,8 +24,9 @@ Decisões de arquitetura: [**ADR-0001**](../ADR-0001-arquitetura-stack-plus.md).
 
 | Variável | Descrição |
 |---|---|
-| `MFE_AUTH_URL` | URL absoluto do `remoteEntry.js` do MFE (ex.: `http://localhost:4001/assets/remoteEntry.js`). |
-| `VITE_MS_AUTH_URL` | Base URL do `plus-ms-auth` para o bundle do **remote** (o login corre no MFE); em dev local do shell só afecta se re-exportares lógica no host. |
+| `MFE_AUTH_URL` | URL absoluto do `remoteEntry.js` do MFE auth (ex.: `http://localhost:4001/assets/remoteEntry.js`). |
+| `MFE_PED_URL` | URL absoluto do `remoteEntry.js` do MFE pedidos (ex.: `http://localhost:4007/assets/remoteEntry.js`). |
+| `VITE_MS_AUTH_URL` | Base URL do `plus-ms-auth` para o bundle do **remote** auth. |
 
 No Docker, ver `plus-infra/docker-compose.yml` (`MFE_AUTH_URL`, `VITE_MS_AUTH_BROWSER`).
 
@@ -69,8 +70,10 @@ Fluxo rápido: `cd ../plus-infra && make setup` → abrir `http://localhost:3000
 
 ## Module Federation (resumo)
 
-| Host | Remote |
-|------|--------|
-| `shell` | `mfe_auth` → `MFE_AUTH_URL` (ficheiro `remoteEntry.js`) |
-| Expõe | `LoginPage` lazy: `import("mfe_auth/LoginPage")` |
-| Shared | `react`, `react-dom` |
+| Host | Remote | Expõe |
+|------|--------|--------|
+| `shell` | `mfe_auth` → `MFE_AUTH_URL` | `LoginPage` lazy |
+| `shell` | `mfe_ped` → `MFE_PED_URL` | `OrdersPage` lazy (menu **Pedidos**) |
+| Shared | `react`, `react-dom` | - |
+
+Após login, o MFE auth emite `plus-auth-login-success` em `window`; o shell escuta esse evento além da prop `onLogin`.

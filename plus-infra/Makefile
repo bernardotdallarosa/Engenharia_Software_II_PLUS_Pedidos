@@ -1,4 +1,4 @@
-.PHONY: setup up down logs reset tf-init tf-apply sync-vite-gateway rebuild-ms-ped rebuild-mfe-ped ensure-env
+.PHONY: setup up down logs reset tf-init tf-apply sync-vite-gateway rebuild-ms-ped rebuild-mfe-ped ensure-env mock-ms4 fix-rds
 
 COMPOSE       = docker compose
 MINISTACK_URL = http://localhost:4566/_localstack/health
@@ -57,12 +57,31 @@ ensure-env:
 
 endif
 
+# Simula consumidor MS4 (le eventos order.* da fila SQS local)
+mock-ms4:
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/mock-ms4-consumer.ps1
+else
+	@docker exec ministack awslocal sqs receive-message \
+		--queue-url "http://localhost:4566/000000000000/plus-order-events" \
+		--max-number-of-messages 5 --wait-time-seconds 2 --output json \
+		| python3 -c "import sys,json; d=json.load(sys.stdin); \
+msgs=d.get('Messages') or []; \
+print('[MS4 mock] Fila: plus-order-events'); \
+print('[MS4 mock] Mensagens:', len(msgs)); \
+[print(m.get('Body','')) for m in msgs]"
+endif
+
 # Inicializa os providers do Terraform
 tf-init:
 	@echo "[make] Inicializando Terraform..."
 	terraform -chdir=$(TF_DIR) init
 
 # Sobe o Ministack, aguarda, provisiona via Terraform e depois sobe todos os serviços
+ifeq ($(OS),Windows_NT)
+setup:
+	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup.ps1
+else
 setup: .env tf-init
 	@echo "[make] Iniciando setup completo..."
 	$(COMPOSE) up -d ministack
@@ -70,16 +89,22 @@ setup: .env tf-init
 	@$(MAKE) tf-apply
 	@$(MAKE) sync-vite-gateway
 	@echo "[make] Atualizando terraform/rds.env (host RDS pode mudar após rede Docker)..."
-ifeq ($(OS),Windows_NT)
-	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/write-rds-env.ps1
-else
 	@sh scripts/write-rds-env.sh
-endif
 	@echo "[make] Rebuild dos MFEs e do shell com variáveis de build atuais..."
 	$(COMPOSE) build plus-mfe-auth plus-mfe-ped plus-shell
 	@echo "[make] Subindo todos os serviços..."
 	$(COMPOSE) up -d
 	@echo "[make] Setup concluído."
+endif
+
+# Corrige ECONNREFUSED nos MS após terraform apply ou IPs Docker desatualizados
+fix-rds:
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fix-rds.ps1
+else
+	@sh scripts/write-rds-env.sh
+	$(COMPOSE) up -d --force-recreate plus-ms-auth plus-ms-ped
+endif
 
 # Sobe todos os serviços em modo detached
 up: .env
