@@ -2,7 +2,9 @@
 
 Repositório de infraestrutura local do projeto **Plus** — sistema de gestão de estoque de roupas.
 
-Orquestra os microsserviços, microfrontends e a stack AWS local (Ministack) via Docker Compose. O provisionamento dos recursos AWS é feito automaticamente via Terraform ao subir a stack.
+Orquestra microsserviços, microfrontends e Ministack (LocalStack) via Docker Compose. O Terraform provisiona S3, RDS emulado, API Gateway e SQS.
+
+No monorepo do Grupo 8, este diretório convive com `plus-ms-ped`, `plus-mfe-ped`, `plus-shell` e os repositórios de auth na mesma raiz.
 
 ---
 
@@ -12,27 +14,26 @@ Orquestra os microsserviços, microfrontends e a stack AWS local (Ministack) via
 |---|---|
 | Docker | 24+ |
 | Terraform | 1.15.3+ |
+| Make | Git Bash, WSL, Chocolatey ou Scoop (Windows) |
 
 ---
 
 ## Estrutura de repositórios
 
-Todos os repositórios devem estar dentro do mesmo diretório:
+Todos os repositórios devem estar no mesmo diretório:
 
 ```
 projeto/
 ├── plus-infra/          ← este repositório
 │   ├── terraform/
-│   │   ├── main.tf
-│   │   └── variables.tf
 │   ├── docker-compose.yml
 │   ├── Makefile
 │   └── .env.example
-├── plus-ms-auth/        ← microsserviço de auth (eleito)
-├── plus-mfe-auth/       ← microfrontend de auth
-├── plus-ms-ped/         ← microsserviço de pedidos (Grupo 8)
-├── plus-mfe-ped/        ← microfrontend de pedidos
-└── plus-shell/          ← shell do frontend
+├── plus-ms-auth/
+├── plus-mfe-auth/
+├── plus-ms-ped/
+├── plus-mfe-ped/
+└── plus-shell/
 ```
 
 ### Clonando os repositórios irmãos
@@ -51,82 +52,91 @@ git clone <url-plus-infra>    plus-infra
 
 ```bash
 cd plus-infra
-
-# 1. Copie e edite as variáveis de ambiente (ou deixe o make gerar o JWT)
-cp .env.example .env
-# make setup / make ensure-env gera JWT_SECRET automaticamente se ainda for placeholder
-
-# 2. Sobe toda a stack
 make setup
 ```
 
-O `make setup` (e o alvo `make ensure-env`) cria o `.env` a partir do exemplo e gera `JWT_SECRET` automaticamente quando o valor ainda é placeholder (`change-me-in-production`, etc.). Não é preciso editar, com exceção se quiser um segredo fixo entre máquinas.
+O `make setup` executa, em sequência:
 
-O `make setup`:
-1. Inicializa os providers Terraform (`terraform init`)
-2. Sobe o Ministack e aguarda ele estar saudável
-3. Provisiona os recursos AWS via `terraform apply` (S3, RDS, API Gateway)
-4. **Atualiza automaticamente** `VITE_MS_AUTH_URL` no `.env` com o URL do API Gateway (`terraform output -raw gateway_url`)
-5. Faz **rebuild** das imagens `plus-mfe-auth` e `plus-shell` com as variáveis de build (ver `docker-compose.yml`)
-6. Sobe todos os demais serviços (`docker compose up -d`)
+1. Cria `.env` e gera `JWT_SECRET` se ainda for placeholder (`make ensure-env`)
+2. Sobe o Ministack e aguarda ficar saudável
+3. `terraform init` + `terraform apply` (S3, RDS, API Gateway, fila SQS)
+4. Gera `terraform/rds.env` e `terraform/rds-ped.env` (IPs do Postgres emulado)
+5. Atualiza `VITE_MS_AUTH_URL` no `.env` com o output do Gateway
+6. Rebuild de `plus-mfe-auth`, `plus-mfe-ped` e `plus-shell`
+7. `docker compose up -d` de todos os serviços
 
-> **Browser vs Gateway (local):** O `.env` mantém `VITE_MS_AUTH_URL` com o URL do **API Gateway** (Terraform). O `docker-compose` passa **`VITE_MS_AUTH_BROWSER`** ao build do MFE e do shell (por omissão `http://localhost:3001`) para o *fetch* no browser ir **direto** ao `plus-ms-auth` e evitar CORS frágil no `4566` em LocalStack. Explicação completa: `CHECKLIST.md` (nota ao item 20) e README do `plus-mfe-auth`. O build do **plus-shell** usa ainda **`MFE_AUTH_URL`** (URL absoluto de `.../assets/remoteEntry.js`); o serviço **depende** do `plus-mfe-auth` saudável antes de subir.
+**Login de teste:** http://localhost:3000 — `admindev@admin.com` / `Senha123`
 
-> **`docker compose up` sozinho** não corre Terraform: o Ministack tem de estar no ar e o state tem de existir (`make tf-apply` ou um `make setup` completo). Sem isso, faltam recursos no LocalStack e `terraform/rds.env` pode estar errado. Para o URL do Gateway no `.env` sem `make setup`, use `make sync-vite-gateway` + `docker compose build plus-mfe-auth plus-shell`.
+> **Primeira vez:** não use só `docker compose up`. Sem Terraform e sem os `rds*.env` gerados, os microsserviços falham com `ECONNREFUSED` em `:5432`. Os ficheiros `rds.env` / `rds-ped.env` não vão para o git (ver `terraform/rds.env.example`).
+
+**Windows sem Make:** `powershell -ExecutionPolicy Bypass -File scripts/setup.ps1`
+
+### Problemas comuns
+
+| Sintoma | Solução |
+|---------|---------|
+| `ECONNREFUSED :5432` | `make fix-rds` |
+| `make` não encontrado | Instale Make ou use `scripts/setup.ps1` |
+| MS auth em loop | `make fix-rds`; confirmar Ministack (`docker ps`) |
+| Shell parado (`mfe-auth unhealthy`) | Aguardar ~30s; se MS auth/ped OK: `docker compose up -d plus-shell` |
+| Alterou código do MS/MFE | `make rebuild-ms-ped` ou `make rebuild-mfe-ped` |
+
+### Browser vs API Gateway
+
+O `.env` guarda o URL do **API Gateway** (Terraform). No build dos MFEs, `VITE_MS_AUTH_BROWSER` (por omissão `http://localhost:3001`) faz o login ir direto ao `plus-ms-auth` no browser, evitando CORS frágil no `:4566`. O shell usa ainda `MFE_AUTH_URL` e `MFE_PED_URL` (URLs do `remoteEntry.js`).
 
 ---
 
-## Comandos disponíveis
+## Comandos
 
 | Comando | Descrição |
-|---|---|
-| `make setup` | Setup completo: `terraform init` → Ministack → `terraform apply` → todos os serviços |
-| `make up` | Só sobe os containers (`docker compose up -d`). Exige Ministack + `make tf-apply` já corridos antes. |
-| `make down` | Para e remove os containers |
-| `make logs` | Acompanha os logs em tempo real |
-| `make reset` | Derruba tudo (inclusive volumes) e refaz o setup do zero |
-| `make tf-init` | Inicializa os providers Terraform |
-| `make tf-apply` | Provisiona os recursos no Ministack via Terraform |
-| `make sync-vite-gateway` | Escreve `VITE_MS_AUTH_URL` no `.env` a partir do output do Terraform (útil se não correr `make setup` completo) |
-| `make rebuild-ms-ped` | Rebuild da imagem Docker do `plus-ms-ped` e restart do contentor |
-| `make rebuild-mfe-ped` | Rebuild do `plus-mfe-ped` + `plus-shell` e restart (após alterar UI ou remote) |
+|---------|-----------|
+| `make setup` | Setup completo (recomendado na primeira vez) |
+| `make up` | Só sobe contentores — exige Ministack + `make tf-apply` já corridos |
+| `make down` | Para os contentores |
+| `make logs` | Logs em tempo real |
+| `make reset` | Remove volumes e refaz `make setup` |
+| `make tf-init` | `terraform init` |
+| `make tf-apply` | Provisiona recursos + regenera `rds*.env` |
+| `make sync-vite-gateway` | Atualiza `VITE_MS_AUTH_URL` no `.env` a partir do Terraform |
+| `make fix-rds` | Regenera `rds*.env` e recria `plus-ms-auth` + `plus-ms-ped` |
+| `make rebuild-ms-ped` | Rebuild da imagem após alterar `plus-ms-ped` |
+| `make rebuild-mfe-ped` | Rebuild `plus-mfe-ped` + `plus-shell` |
+| `make mock-ms4` | Lê eventos `order.*` da fila SQS (mock do MS4 Estoque) |
 
-## URLs e portas locais
+---
 
-| Serviço | URL local | Descrição |
-|---|---|---|
-| plus-shell | http://localhost:3000 | Shell App (microfrontend host) |
-| plus-ms-auth | http://localhost:3001 | Microsserviço de autenticação |
-| plus-mfe-auth | http://localhost:4001 | Microfrontend de autenticação |
-| plus-ms-ped | http://localhost:3007 | Microsserviço de pedidos (Grupo 8) |
-| plus-mfe-ped | http://localhost:4007 | Microfrontend de pedidos |
-| Ministack | http://localhost:4566 | Emulador AWS |
-| API Gateway | `http://localhost:4566/restapis/<api-id>/v1/_user_request_` | Gateway para plus-ms-auth |
-| RDS (PostgreSQL) | `terraform/rds.env` (auth) e `terraform/rds-ped.env` (pedidos), gerados após `terraform apply` | O LocalStack coloca cada RDS num sidecar; hosts distintos por instância. |
+## URLs e portas
 
-> **`terraform/rds.env`:** gerado no **host** após `terraform apply` (`make tf-apply` ou passo 3 do `make setup`), com `DB_HOST` / `DB_PORT` do Postgres emulado (muitas vezes um `172.18.x.x` na rede Docker, não o hostname `ministack`). Se o `init-db` falhar com `ECONNREFUSED`, com o Ministack no ar corra `make tf-apply` e depois `docker compose up -d --force-recreate plus-ms-auth`.
+| Serviço | URL |
+|---------|-----|
+| Shell | http://localhost:3000 |
+| MS Auth | http://localhost:3001 |
+| MFE Auth | http://localhost:4001 |
+| MS Pedidos | http://localhost:3007 |
+| Swagger (Pedidos) | http://localhost:3007/docs |
+| MFE Pedidos | http://localhost:4007 |
+| Ministack | http://localhost:4566 |
 
-> O ID do API Gateway é gerado dinamicamente pelo Terraform e exibido no output do `make setup`.
-> Para consultar depois: `awslocal apigateway get-rest-apis`
+O Postgres emulado corre em contentores à parte (`ministack-rds-plus-auth-db`, `ministack-rds-plus-ped-db`). Os IPs são escritos em `terraform/rds.env` e `rds-ped.env` após o `terraform apply`.
+
+O ID do API Gateway é gerado pelo Terraform. Para consultar: `awslocal apigateway get-rest-apis` (com Ministack no ar).
 
 ### Rotas do API Gateway
 
 | Método | Rota | Destino |
-|---|---|---|
-| POST | `/auth/login` | plus-ms-auth:3001 |
-| POST | `/auth/refresh` | plus-ms-auth:3001 |
-| POST | `/auth/logout` | plus-ms-auth:3001 |
+|--------|------|---------|
+| POST | `/auth/login`, `/auth/refresh`, `/auth/logout` | plus-ms-auth:3001 |
 | GET | `/auth/me` | plus-ms-auth:3001 |
-| ANY | `/orders` | plus-ms-ped:3007 |
-| ANY | `/orders/{proxy+}` | plus-ms-ped:3007 |
+| ANY | `/orders`, `/orders/{proxy+}` | plus-ms-ped:3007 |
 
 ---
 
 ## Como adicionar um novo microsserviço
 
-1. **Crie o repositório** no mesmo nível dos demais (ex: `plus-ms-inventory/`).
+1. **Crie o repositório** no mesmo nível dos demais (ex.: `plus-ms-inventory/`).
 
-2. **Adicione o serviço ao `docker-compose.yml`**, dependendo do Ministack estar saudável:
+2. **Adicione o serviço ao `docker-compose.yml`**, dependendo do Ministack:
 
 ```yaml
 plus-ms-inventory:
@@ -153,6 +163,6 @@ plus-ms-inventory:
 MS_INVENTORY_PORT=3002
 ```
 
-4. **Se precisar de rotas no API Gateway ou outros recursos AWS**, adicione os recursos correspondentes em `terraform/main.tf` seguindo os padrões já existentes para S3, RDS e API Gateway.
+4. **Rotas ou recursos AWS extras** — adicione em `terraform/main.tf` (seguir padrões de S3, RDS, API Gateway).
 
-5. Rode `make reset` para recriar a stack com as novas configurações.
+5. **Recrie a stack:** `make reset` (ou `make tf-apply` + `docker compose up -d --build` se a alteração for pontual).

@@ -6,3 +6,6 @@ terraform/.terraform/
 terraform/.terraform.lock.hcl
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
+# IPs do Postgres emulado — gerados por write-rds-env apos terraform apply (especificos da maquina)
+terraform/rds.env
+terraform/rds-ped.env

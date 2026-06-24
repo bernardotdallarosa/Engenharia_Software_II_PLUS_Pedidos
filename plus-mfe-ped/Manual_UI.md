@@ -2,7 +2,7 @@
 
 ## 1. Pré-requisitos
 
-Antes de usar a tela de Pedidos, certifique-se de que o ambiente local está em execução com o `make setup` dentro de `plus-infra`.
+Antes de usar a tela de Pedidos, execute `make setup` em `plus-infra`.
 
 O fluxo de uso deve ser feito sempre pelo Shell:
 
@@ -13,6 +13,20 @@ Credenciais de teste:
 
 - Email: `admindev@admin.com`
 - Senha: `Senha123`
+
+### Registar novo utilizador (vendedor)
+
+O Shell só expõe a tela de **login** do MFE auth. O link “Criar conta” altera a URL, mas **não abre o formulário de registo**.
+
+Para criar um utilizador com role `vendedor` e testar RBAC na UI, registe via API e depois faça login no Shell:
+
+```bash
+curl -s -X POST http://localhost:3001/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"vendedor.teste@loja.com","password":"Senha123"}'
+```
+
+Senha: 6–10 caracteres, com maiúscula, minúscula e dígito. Novos registos recebem role `vendedor` automaticamente.
 
 ## 2. Como entrar
 

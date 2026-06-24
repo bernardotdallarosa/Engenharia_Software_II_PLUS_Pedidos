@@ -47,7 +47,8 @@ docker run --rm -p 3007:3007 -e PORT=3007 plus-ms-ped
 
 ## CI/CD e publicação
 
-O workflow do GitHub Actions executa `npm ci`, `npm test` e `npm run build` em cada pull request / push para `main` e `develop`.
+O workflow está na **raiz do monorepo**: [`.github/workflows/ci-plus-ms-ped.yml`](../.github/workflows/ci-plus-ms-ped.yml).  
+Em cada pull request / push para `main` e `develop` executa `npm ci`, `npm test` e `npm run build` dentro de `plus-ms-ped/`.
 
 A publicação da imagem Docker ocorre em:
 
@@ -82,6 +83,42 @@ Exemplo de imagem publicada:
 ## Stack completa
 
 Ver [`plus-infra/README.md`](../plus-infra/README.md) — `make setup` sobe auth, shell, pedidos e Ministack.
+
+## Testar a API (curl)
+
+Pré-requisito: stack no ar (`make setup` em `plus-infra`). Utilizador seed: `admindev@admin.com` / `Senha123`.
+
+**1. Obter token**
+
+```bash
+curl -s -X POST http://localhost:3001/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admindev@admin.com","password":"Senha123"}'
+```
+
+Use o campo `access_token` da resposta.
+
+**2. Criar pedido**
+
+```bash
+curl -s -X POST http://localhost:3007/orders \
+  -H "Authorization: Bearer SEU_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"SALE","items":[{"productVariantId":"var-vestido-marinho-48","quantity":1}],"notes":"Venda teste"}'
+```
+
+Resposta esperada: HTTP **201**, `status` `DRAFT`, `createdBy` = email do token.
+
+**Cenários úteis na avaliação**
+
+| Situação | Resultado |
+|----------|-----------|
+| Sem `Authorization` | 401 |
+| `vendedor` + `type: PURCHASE` | 403 |
+| `items` vazio | 400 |
+| Imagem Docker desatualizada (sem rebuild) | 501 em `/orders` → `make rebuild-ms-ped` |
+
+Registar vendedor para testes RBAC: `POST http://localhost:3001/auth/register` (ver [`Manual_UI.md`](../plus-mfe-ped/Manual_UI.md)).
 
 ## Testes
 
