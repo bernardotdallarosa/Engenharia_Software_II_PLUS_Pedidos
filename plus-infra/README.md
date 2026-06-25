@@ -14,7 +14,7 @@ No monorepo do Grupo 8, este diretório convive com `plus-ms-ped`, `plus-mfe-ped
 |---|---|
 | Docker | 24+ |
 | Terraform | 1.15.3+ |
-| Make | Git Bash, WSL, Chocolatey ou Scoop (Windows) |
+| Make | - |
 
 ---
 
